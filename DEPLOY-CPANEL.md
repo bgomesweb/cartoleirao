@@ -135,9 +135,9 @@ putenv('DB_USERNAME=usuario_cartoleirao');
 putenv('DB_PASSWORD=a-senha-que-voce-definiu');
 
 putenv('CARTOLA_API_BASE=https://api.cartola.globo.com');
-putenv('CARTOLA_LIGA_OFICIAL_HABILITADA=false');
+putenv('CARTOLA_OFFICIAL_LEAGUE_ENABLED=false');
 putenv('CARTOLA_LOGIN_EMAIL=');
-putenv('CARTOLA_LOGIN_SENHA=');
+putenv('CARTOLA_LOGIN_PASSWORD=');
 
 putenv('APP_URL=https://seudominio.com.br');
 ```
@@ -152,20 +152,27 @@ Via **phpMyAdmin** (ícone no cPanel):
 
 1. Abra o phpMyAdmin, selecione o banco `usuario_cartoleirao` na lateral.
 2. Vá na aba **"Import"** (Importar).
-3. Clique em "Escolher arquivo" e selecione `database/schema.sql` (baixe
-   esse arquivo do File Manager pro seu computador primeiro, ou copie o
+3. Clique em "Escolher arquivo" e selecione `database/schema_en.sql` — é o
+   schema atual, já com os nomes de tabela/coluna em inglês (baixe esse
+   arquivo do File Manager pro seu computador primeiro, ou copie o
    conteúdo e cole na aba "SQL" do phpMyAdmin em vez de importar arquivo).
 4. Clique em "Go" / "Executar".
 
-Confirme que criou as ~11 tabelas (aba "Structure" do banco, deve listar
-`admins`, `ligas`, `participantes`, `times_liga_oficial`, `pontuacoes` etc).
+Confirme que criou as ~13 tabelas (aba "Structure" do banco, deve listar
+`admins`, `leagues`, `registrants`, `official_league_teams`, `scores` etc).
+
+> **Já tem um banco antigo (nomes em português) rodando em produção?** Não
+> rode `schema_en.sql` por cima — use
+> `database/migrations/001_rename_schema_to_english.sql` (com backup antes,
+> ver comentário no topo do arquivo), que renomeia as tabelas/colunas
+> existentes sem apagar os dados.
 
 ## 8. Criar o usuário admin
 
 Se você tem Terminal/SSH:
 ```bash
 cd ~/cartoleirao
-php scripts/criar_admin.php admin "SuaSenhaForte123"
+php scripts/create_admin.php admin "SuaSenhaForte123"
 ```
 
 **Sem Terminal:** crie um arquivo temporário `public/criar-admin-temp.php`
@@ -179,7 +186,7 @@ use Cartoleirao\Database\Connection;
 
 $hash = password_hash('SuaSenhaForte123', PASSWORD_BCRYPT);
 $pdo = Connection::get();
-$stmt = $pdo->prepare('INSERT INTO admins (usuario, senha_hash) VALUES (?, ?)');
+$stmt = $pdo->prepare('INSERT INTO admins (username, password_hash) VALUES (?, ?)');
 $stmt->execute(['admin', $hash]);
 echo 'Admin criado! APAGUE ESTE ARQUIVO AGORA.';
 ```
@@ -206,7 +213,7 @@ Hora: *
 Dia: *
 Mês: *
 Dia da semana: *
-Comando: /usr/local/bin/php /home/usuario/cartoleirao/cron/sync_jogos.php >> /home/usuario/cartoleirao/cron.log 2>&1
+Comando: /usr/local/bin/php /home/usuario/cartoleirao/cron/sync_games.php >> /home/usuario/cartoleirao/cron.log 2>&1
 ```
 
 **Pontuação (a cada 15 minutos):**
@@ -216,7 +223,7 @@ Hora: *
 Dia: *
 Mês: *
 Dia da semana: *
-Comando: /usr/local/bin/php /home/usuario/cartoleirao/cron/sync_pontuacao.php >> /home/usuario/cartoleirao/cron.log 2>&1
+Comando: /usr/local/bin/php /home/usuario/cartoleirao/cron/sync_scores.php >> /home/usuario/cartoleirao/cron.log 2>&1
 ```
 
 **Liga oficial / Pontos Corridos "Glória Eterna" (a cada 20 minutos):**
@@ -226,8 +233,14 @@ Hora: *
 Dia: *
 Mês: *
 Dia da semana: *
-Comando: /usr/local/bin/php /home/usuario/cartoleirao/cron/sync_liga_oficial.php >> /home/usuario/cartoleirao/cron.log 2>&1
+Comando: /usr/local/bin/php /home/usuario/cartoleirao/cron/sync_official_league.php >> /home/usuario/cartoleirao/cron.log 2>&1
 ```
+
+> **Já tinha os 3 cron jobs antigos configurados** (`sync_jogos.php`,
+> `sync_pontuacao.php`, `sync_liga_oficial.php`)? Eles continuam funcionando
+> por enquanto (viraram atalhos de 1 linha pros arquivos novos), mas
+> atualize o comando no cPanel pros nomes acima assim que puder — os
+> arquivos antigos serão removidos numa limpeza futura.
 
 Ajuste `/usr/local/bin/php` e `/home/usuario/cartoleirao` pros caminhos
 reais da sua conta. O `>> cron.log 2>&1` salva a saída num arquivo de log
@@ -235,8 +248,8 @@ reais da sua conta. O `>> cron.log 2>&1` salva a saída num arquivo de log
 cPanel te manda um e-mail toda vez que o cron roda, o que enche a caixa de
 entrada rapidinho.
 
-> **Sobre o 3º cron job:** `sync_liga_oficial.php` só faz alguma coisa se
-> `CARTOLA_LIGA_OFICIAL_HABILITADA=true` estiver no `config.local.php` **e**
+> **Sobre o 3º cron job:** `sync_official_league.php` só faz alguma coisa se
+> `CARTOLA_OFFICIAL_LEAGUE_ENABLED=true` estiver no `config.local.php` **e**
 > houver um token válido em cache (colado em `admin/cartola-login.php` — ver
 > aviso na tela de `admin/liga-oficial.php`). Sem token, ele só loga um aviso
 > em `sync_log` e sai sem erro, então é seguro deixar esse cron sempre
@@ -262,8 +275,8 @@ Com tudo no ar:
 
 ```bash
 # se tiver terminal:
-php ~/cartoleirao/cron/sync_jogos.php
-php ~/cartoleirao/scripts/backfill_pontuacao.php
+php ~/cartoleirao/cron/sync_games.php
+php ~/cartoleirao/scripts/backfill_scores.php
 ```
 
 Sem terminal, espere os cron jobs do passo 9 rodarem sozinhos nos primeiros
@@ -281,7 +294,7 @@ por cron, é sempre manual (ver README sobre o captcha do login da Globo).
 - [ ] `config.local.php` e a pasta `src/` **não** abrem por URL direta
       (teste: `https://seudominio.com.br/config.local.php` deve dar 404,
       não deve baixar nem mostrar nada)
-- [ ] Os 2 cron jobs aparecem em "Cron Jobs" no cPanel
+- [ ] Os 3 cron jobs aparecem em "Cron Jobs" no cPanel
 - [ ] `admin/inscricoes.php` e `admin/liga-oficial.php` carregam normalmente
 
 Se o teste do `config.local.php` acima (item de segurança) FALHAR — ou seja,

@@ -8,7 +8,7 @@
  *   3. Chamada real à API do Cartola
  *
  * Uso:
- *   docker compose exec app php scripts/testar_conexao_cartola.php
+ *   docker compose exec app php scripts/test_cartola_connection.php
  */
 
 echo "== 1. Resolução de DNS ==\n";
@@ -24,10 +24,10 @@ echo "\n== 2. Conexão HTTPS genérica (https://www.google.com) ==\n";
 $ch = curl_init('https://www.google.com');
 curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8, CURLOPT_NOBODY => true]);
 $ok = curl_exec($ch);
-$erro = curl_error($ch);
+$curlError = curl_error($ch);
 $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 if ($ok === false) {
-    echo "FALHOU: {$erro}\n";
+    echo "FALHOU: {$curlError}\n";
     echo "-> Provável causa: sem saída de internet no container (egress bloqueado) ou problema de certificado SSL/CA.\n";
 } else {
     echo "OK: HTTP {$status}\n";
@@ -44,11 +44,11 @@ curl_setopt_array($ch, [
     CURLOPT_VERBOSE => false,
 ]);
 $body = curl_exec($ch);
-$erro = curl_error($ch);
+$curlError = curl_error($ch);
 $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
 if ($body === false) {
-    echo "FALHOU (curl): {$erro}\n";
+    echo "FALHOU (curl): {$curlError}\n";
 } else {
     echo "HTTP {$status}\n";
     echo "Corpo da resposta (primeiros 500 chars):\n";

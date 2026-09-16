@@ -9,7 +9,7 @@ declare(strict_types=1);
  * está dando HTTP 404 e a suspeita é slug desatualizado/errado.
  *
  * Uso (dentro do container ou via SSH no cPanel):
- *   php scripts/buscar_liga.php "Cartoleirão Glória Eterna"
+ *   php scripts/find_league.php "Cartoleirão Glória Eterna"
  */
 
 require_once __DIR__ . '/../src/Config/env.php';
@@ -18,49 +18,49 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use Cartoleirao\Services\CartolaApiClient;
 use Cartoleirao\Services\CartolaAuthService;
 
-$nomeBusca = $argv[1] ?? null;
+$searchName = $argv[1] ?? null;
 
-if (!$nomeBusca) {
-    echo "Uso: php buscar_liga.php \"nome ou parte do nome da liga\"\n";
+if (!$searchName) {
+    echo "Uso: php find_league.php \"nome ou parte do nome da liga\"\n";
     exit(1);
 }
 
 $auth = new CartolaAuthService();
-$token = $auth->obterToken();
+$token = $auth->getToken();
 
 if (!$token) {
-    echo "Sem token válido salvo: " . ($auth->getUltimoErro() ?? 'motivo desconhecido') . "\n";
+    echo "Sem token válido salvo: " . ($auth->getLastError() ?? 'motivo desconhecido') . "\n";
     echo "-> Rode o bookmarklet de novo em admin/cartola-bookmarklet.php e tente de novo.\n";
     exit(1);
 }
 
 $api = new CartolaApiClient();
-$resposta = $api->buscarLigasPorNome($nomeBusca, $token);
+$response = $api->searchLeaguesByName($searchName, $token);
 
-if ($resposta === null) {
-    echo "Falha na busca: " . ($api->getUltimoErro() ?? 'sem detalhes') . "\n";
+if ($response === null) {
+    echo "Falha na busca: " . ($api->getLastError() ?? 'sem detalhes') . "\n";
     exit(1);
 }
 
-// A resposta pode vir como lista direta ou dentro de uma chave (ex: 'ligas')
-$ligas = $resposta['ligas'] ?? $resposta;
+// The response may come as a direct list or nested under a key (e.g. 'ligas')
+$leagues = $response['ligas'] ?? $response;
 
-if (!is_array($ligas) || empty($ligas)) {
-    echo "Nenhuma liga encontrada pra \"{$nomeBusca}\" com essa conta.\n";
+if (!is_array($leagues) || empty($leagues)) {
+    echo "Nenhuma liga encontrada pra \"{$searchName}\" com essa conta.\n";
     echo "Resposta bruta da API (pra conferência manual):\n";
-    echo json_encode($resposta, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";
+    echo json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";
     exit(0);
 }
 
 echo "Ligas encontradas:\n\n";
-foreach ($ligas as $liga) {
-    if (!is_array($liga)) {
+foreach ($leagues as $league) {
+    if (!is_array($league)) {
         continue;
     }
-    $nome = $liga['nome'] ?? '(sem nome)';
-    $slug = $liga['slug'] ?? '(sem slug)';
-    $id = $liga['liga_id'] ?? ($liga['id'] ?? '?');
-    echo "- nome: {$nome}\n";
+    $name = $league['nome'] ?? '(sem nome)';
+    $slug = $league['slug'] ?? '(sem slug)';
+    $id = $league['liga_id'] ?? ($league['id'] ?? '?');
+    echo "- nome: {$name}\n";
     echo "  slug: {$slug}   <- é esse valor que precisa estar em admin/ligas.php\n";
     echo "  id:   {$id}\n\n";
 }

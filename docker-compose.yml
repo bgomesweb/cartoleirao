@@ -16,14 +16,15 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-cartoleirao}
       CARTOLA_API_BASE: ${CARTOLA_API_BASE:-https://api.cartola.globo.com}
       CARTOLA_LOGIN_EMAIL: ${CARTOLA_LOGIN_EMAIL:-}
-      CARTOLA_LOGIN_SENHA: ${CARTOLA_LOGIN_SENHA:-}
+      CARTOLA_LOGIN_PASSWORD: ${CARTOLA_LOGIN_PASSWORD:-}
+      CARTOLA_OFFICIAL_LEAGUE_ENABLED: ${CARTOLA_OFFICIAL_LEAGUE_ENABLED:-false}
       APP_URL: ${APP_URL:-http://localhost:8080}
       CARTOLA_BOOKMARKLET_SECRET: ${CARTOLA_BOOKMARKLET_SECRET:-}
-      EMAIL_REMETENTE: ${EMAIL_REMETENTE:-nao-responda@localhost}
-      EMAIL_REMETENTE_NOME: ${EMAIL_REMETENTE_NOME:-Cartoleirão}
-      PIX_CHAVE: ${PIX_CHAVE:-19998970090}
-      PIX_FAVORECIDO: ${PIX_FAVORECIDO:-Bruno Gomes da Silva}
-      ADMIN_LIGA_NOME: ${ADMIN_LIGA_NOME:-Bruno Gomes}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-nao-responda@localhost}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Cartoleirão}
+      PIX_KEY: ${PIX_KEY:-19998970090}
+      PIX_RECIPIENT: ${PIX_RECIPIENT:-Bruno Gomes da Silva}
+      LEAGUE_ADMIN_NAME: ${LEAGUE_ADMIN_NAME:-Bruno Gomes}
     depends_on:
       db:
         condition: service_healthy
@@ -43,7 +44,7 @@ services:
       - "${DB_PORT:-3306}:3306"
     volumes:
       - db_data:/var/lib/mysql
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./database/schema_en.sql:/docker-entrypoint-initdb.d/01_schema.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root}"]
       interval: 5s
@@ -83,7 +84,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-cartoleirao}
       CARTOLA_API_BASE: ${CARTOLA_API_BASE:-https://api.cartola.globo.com}
       CARTOLA_LOGIN_EMAIL: ${CARTOLA_LOGIN_EMAIL:-}
-      CARTOLA_LOGIN_SENHA: ${CARTOLA_LOGIN_SENHA:-}
+      CARTOLA_LOGIN_PASSWORD: ${CARTOLA_LOGIN_PASSWORD:-}
+      CARTOLA_OFFICIAL_LEAGUE_ENABLED: ${CARTOLA_OFFICIAL_LEAGUE_ENABLED:-false}
     entrypoint: ["php", "/var/www/html/cron/scheduler.php"]
     depends_on:
       - app

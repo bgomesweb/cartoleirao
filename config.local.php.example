@@ -26,9 +26,9 @@ putenv('DB_PASSWORD=TROQUE_ESTA_SENHA');
 putenv('CARTOLA_API_BASE=https://api.cartola.globo.com');
 
 // --- Login pra liga oficial (deixe desabilitado — ver README, não funciona por causa do captcha) ---
-putenv('CARTOLA_LIGA_OFICIAL_HABILITADA=false');
+putenv('CARTOLA_OFFICIAL_LEAGUE_ENABLED=false');
 putenv('CARTOLA_LOGIN_EMAIL=');
-putenv('CARTOLA_LOGIN_SENHA=');
+putenv('CARTOLA_LOGIN_PASSWORD=');
 
 // --- URL pública do site (usado em textos/links, ajuste pro seu domínio) ---
 putenv('APP_URL=https://seudominio.com.br');
@@ -38,8 +38,8 @@ putenv('APP_URL=https://seudominio.com.br');
 putenv('CARTOLA_BOOKMARKLET_SECRET=');
 
 // --- E-mails de inscrição/confirmação de pagamento ---
-putenv('EMAIL_REMETENTE=nao-responda@bgomesweb.com.br');
-putenv('EMAIL_REMETENTE_NOME=Cartoleirão');
-putenv('PIX_CHAVE=19998970090');
-putenv('PIX_FAVORECIDO=Bruno Gomes da Silva');
-putenv('ADMIN_LIGA_NOME=Bruno Gomes');
+putenv('EMAIL_FROM_ADDRESS=nao-responda@bgomesweb.com.br');
+putenv('EMAIL_FROM_NAME=Cartoleirão');
+putenv('PIX_KEY=19998970090');
+putenv('PIX_RECIPIENT=Bruno Gomes da Silva');
+putenv('LEAGUE_ADMIN_NAME=Bruno Gomes');

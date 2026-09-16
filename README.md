@@ -69,7 +69,7 @@ Isso sobe:
 | phpMyAdmin | http://localhost:8081 |
 | MySQL | localhost:3306 |
 
-O `database/schema.sql` é executado automaticamente na primeira vez que o
+O `database/schema_en.sql` é executado automaticamente na primeira vez que o
 container do banco sobe (via `docker-entrypoint-initdb.d`).
 
 ## 2. Instalar dependências PHP (autoload)
@@ -83,13 +83,13 @@ docker compose exec app composer dump-autoload
 ## 3. Criar o admin
 
 ```bash
-docker compose exec app php scripts/gerar_hash_admin.php "SuaSenhaForte123"
+docker compose exec app php scripts/generate_admin_hash.php "SuaSenhaForte123"
 ```
 
 Copie o hash impresso e rode no phpMyAdmin (ou `docker compose exec db mysql -u root -p`):
 
 ```sql
-INSERT INTO admins (usuario, senha_hash) VALUES ('admin', '<hash gerado>');
+INSERT INTO admins (username, password_hash) VALUES ('admin', '<hash gerado>');
 ```
 
 ## 4. Verificar se subiu certo
@@ -119,7 +119,7 @@ cartoleirao/
 │   ├── Services/         # CartolaApiClient, RankingService etc (a implementar)
 │   └── Controllers/
 ├── cron/                 # scripts de sincronização com a API do Cartola
-├── database/schema.sql   # schema completo do MySQL
+├── database/schema_en.sql   # schema completo do MySQL (inglês, usado no Docker)
 ├── scripts/               # utilitários (ex: gerar hash de admin)
 └── docker-compose.yml
 ```
@@ -139,113 +139,20 @@ cartoleirao/
 ### Criar o primeiro admin
 
 ```bash
-docker compose exec app php scripts/gerar_hash_admin.php "SuaSenhaForte123"
+docker compose exec app php scripts/generate_admin_hash.php "SuaSenhaForte123"
 ```
 
 Copie o hash e rode no phpMyAdmin (`http://localhost:8081`) ou via mysql client:
 
 ```sql
-INSERT INTO admins (usuario, senha_hash) VALUES ('admin', '<hash gerado>');
+INSERT INTO admins (username, password_hash) VALUES ('admin', '<hash gerado>');
 ```
 
-## ⚠️ Migração: colunas novas em times_liga_oficial (tabela de pontos corridos)
-
-Adição pura (sem apagar nada), roda direto:
-
-```bash
-docker compose exec -T db mysql -u root -proot cartoleirao <<'EOF'
-ALTER TABLE times_liga_oficial
-    ADD COLUMN nome_dono VARCHAR(150) NULL AFTER nome_cartola,
-    ADD COLUMN assinante TINYINT(1) NOT NULL DEFAULT 0 AFTER nome_dono,
-    ADD COLUMN pc_posicao INT NULL,
-    ADD COLUMN pc_variacao INT NULL,
-    ADD COLUMN pc_pontos INT NULL,
-    ADD COLUMN pc_vitorias INT NULL,
-    ADD COLUMN pc_empates INT NULL,
-    ADD COLUMN pc_derrotas INT NULL,
-    ADD COLUMN pc_pontos_cartola DECIMAL(10,4) NULL;
-EOF
-```
-
-> Se der erro `Duplicate column name`, é porque você já rodou isso antes — ignora.
-
-## ⚠️ Migração: pontuacoes agora aponta pra times_liga_oficial, não participantes
-
-Mudança de arquitetura (ranking passou a ser dos times da liga oficial, não
-de quem se inscreveu). Como você provavelmente não tem pontuação real ainda
-salva (o login pra popular isso nunca funcionou por causa do captcha), o mais
-simples é recriar só essa tabela:
-
-```bash
-docker compose exec -T db mysql -u root -proot cartoleirao <<'EOF'
-DROP TABLE IF EXISTS pontuacoes;
-
-CREATE TABLE pontuacoes (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    time_liga_oficial_id INT NOT NULL,
-    rodada_id INT NOT NULL,
-    pontos DECIMAL(7,2) NOT NULL DEFAULT 0,
-    patrimonio DECIMAL(12,2) NULL,
-    origem ENUM('api','manual') NOT NULL DEFAULT 'api',
-    atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (time_liga_oficial_id) REFERENCES times_liga_oficial(id) ON DELETE CASCADE,
-    FOREIGN KEY (rodada_id) REFERENCES rodadas(id) ON DELETE CASCADE,
-    UNIQUE KEY uq_time_rodada (time_liga_oficial_id, rodada_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-EOF
-```
-
-Se por acaso você **já tiver** pontuação real salva que precisa preservar,
-me avisa antes de rodar isso que eu escrevo um script de migração de dados
-em vez de recriar a tabela do zero.
-
-## ⚠️ Se você já tinha o banco rodando antes deste módulo
-
-Dessa vez **não precisa resetar o volume** (você já tem inscrições reais).
-São só adições (tabelas novas + uma coluna nova em `ligas`), então dá pra
-aplicar direto:
-
-```bash
-docker compose exec db mysql -u root -proot cartoleirao <<'EOF'
-ALTER TABLE ligas ADD COLUMN IF NOT EXISTS cartola_liga_slug VARCHAR(150) NULL;
-
-UPDATE ligas SET cartola_liga_slug = 'cartoleirao-2026' WHERE slug = 'cartoleirao';
-UPDATE ligas SET cartola_liga_slug = 'd5j59k2k58ms73fgkfi0' WHERE slug = 'cartoleirao-gloria-eterna';
-
-CREATE TABLE IF NOT EXISTS times_liga_oficial (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    liga_id INT NOT NULL,
-    cartola_time_id BIGINT NOT NULL,
-    nome_cartola VARCHAR(150) NULL,
-    slug VARCHAR(150) NULL,
-    escudo_url VARCHAR(255) NULL,
-    participante_id INT NULL,
-    sincronizado_em DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (liga_id) REFERENCES ligas(id) ON DELETE CASCADE,
-    FOREIGN KEY (participante_id) REFERENCES participantes(id) ON DELETE SET NULL,
-    UNIQUE KEY uq_liga_time (liga_id, cartola_time_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS cartola_auth (
-    id TINYINT PRIMARY KEY DEFAULT 1,
-    token TEXT NULL,
-    autenticado_em DATETIME NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-INSERT INTO cartola_auth (id, token, autenticado_em) VALUES (1, NULL, NULL)
-    ON DUPLICATE KEY UPDATE id = id;
-EOF
-```
-
-> Se der erro no `ADD COLUMN IF NOT EXISTS` (depende da versão do MySQL),
-> tira o `IF NOT EXISTS` — só vai dar erro de "coluna já existe" se você já
-> tiver rodado isso antes, o que é inofensivo.
-
-Depois disso, atualize os arquivos de código (unzip por cima) e:
-
-```bash
-docker compose exec app composer dump-autoload
-```
+> O histórico de migrações incrementais do banco (como cada tabela/coluna
+> foi adicionada ao longo do projeto) foi movido pro [CHANGELOG.md](CHANGELOG.md).
+> Pra reconstruir o schema atual do zero, use `database/schema_en.sql`; pra
+> migrar um banco antigo (nomes em português) pro schema novo (inglês), use
+> `database/migrations/001_rename_schema_to_english.sql`.
 
 ## Módulo de integração com a API do Cartola FC + páginas públicas
 
@@ -259,17 +166,17 @@ de chave para os endpoints de leitura usados aqui).
 
 - `src/Services/CartolaApiClient.php` — cliente HTTP (clubes, mercado/status,
   partidas por rodada, pontuação de um time numa rodada, busca de times)
-- `src/Services/SincronizacaoService.php` — orquestra a sincronização
+- `src/Services/SyncService.php` — orquestra a sincronização
   (clubes → rodada atual → jogos → pontuação), grava log em `sync_log`
-- `cron/sync_jogos.php` — roda a cada 10 min (via `cron/scheduler.php`):
+- `cron/sync_games.php` — roda a cada 10 min (via `cron/scheduler.php`):
   sincroniza clubes (se necessário) e os jogos da rodada atual
-- `cron/sync_pontuacao.php` — roda a cada 15 min: para cada participante com
-  time do Cartola **vinculado** (`vinculado_api = 1`), busca a pontuação da
-  rodada atual e grava em `pontuacoes`
-- `cron/sync_liga_oficial.php` — roda a cada 20 min (via `cron/scheduler.php`
+- `cron/sync_scores.php` — roda a cada 15 min: para cada time da liga oficial
+  cadastrado (`official_league_teams`), busca a pontuação da rodada atual e
+  grava em `scores`
+- `cron/sync_official_league.php` — roda a cada 20 min (via `cron/scheduler.php`
   local, ou cron real no cPanel): sincroniza a(s) liga(s) com
-  `cartola_liga_slug` configurado, incluindo ligas "Pontos Corridos" (ex:
-  Glória Eterna). Só faz algo se `CARTOLA_LIGA_OFICIAL_HABILITADA=true` **e**
+  `cartola_league_slug` configurado, incluindo ligas "Pontos Corridos" (ex:
+  Glória Eterna). Só faz algo se `CARTOLA_OFFICIAL_LEAGUE_ENABLED=true` **e**
   houver um token válido em cache (colado em `admin/cartola-login.php`); sem
   isso, só loga e sai sem erro. O login automático por e-mail/senha continua
   batendo em captcha — o token precisa ser colado manualmente de vez em
@@ -282,7 +189,7 @@ de chave para os endpoints de leitura usados aqui).
 
 ### Páginas públicas
 
-- `index.php` — Home: banner, quadro de premiação (lido de `liga_config`),
+- `index.php` — Home: banner, quadro de premiação (lido de `league_settings`),
   destaques da rodada (top 8 da liga clássica na última rodada com pontuação)
 - `jogos.php` — jogos de qualquer rodada já sincronizada (seletor de rodada) +
   botão "Compartilhar rodada" que monta o texto e abre o WhatsApp
@@ -304,9 +211,9 @@ Cores extraídas do logo (`public/assets/img/logo.png`): azul marinho
 ### Forçar uma sincronização manual (útil pra testar sem esperar o cron)
 
 ```bash
-docker compose exec app php cron/sync_jogos.php
-docker compose exec app php cron/sync_pontuacao.php
-docker compose exec app php cron/sync_liga_oficial.php
+docker compose exec app php cron/sync_games.php
+docker compose exec app php cron/sync_scores.php
+docker compose exec app php cron/sync_official_league.php
 ```
 
 ### Diagnóstico de conectividade com a API do Cartola
@@ -315,27 +222,27 @@ Se a sincronização falhar, esse script isola onde está o problema (DNS,
 egress de internet do container, SSL, ou resposta da própria API):
 
 ```bash
-docker compose exec app php scripts/testar_conexao_cartola.php
+docker compose exec app php scripts/test_cartola_connection.php
 ```
 
 ### Arquitetura: inscrição (pagamento) ≠ ranking (times da liga oficial)
 
 Duas coisas completamente desacopladas, de propósito:
 
-1. **Inscrição** (`participantes`): só controla quem se cadastrou e se pagou
+1. **Inscrição** (`registrants`): só controla quem se cadastrou e se pagou
    (`admin/inscricoes.php`, toggle pago/pendente). Não precisa de nome de
    time nem de nada relacionado ao Cartola pra existir.
-2. **Ranking/pontuação** (`times_liga_oficial` + `pontuacoes`): vem de TODOS
+2. **Ranking/pontuação** (`official_league_teams` + `scores`): vem de TODOS
    os times que estão de fato na liga oficial do Cartola, independente de
    alguém ter feito a inscrição. `classificacao.php`, `index.php` (destaques)
    e o compartilhamento no WhatsApp mostram todo mundo que está jogando.
 
 O cruzamento entre as duas (pra saber quem pagou) é opcional e feito em
-`admin/liga-oficial.php`: `times_liga_oficial.participante_id` aponta pro
+`admin/liga-oficial.php`: `official_league_teams.registrant_id` aponta pro
 participante correspondente, quando existir — usado só pra exibir o nome/
 badge de pago junto do time na classificação.
 
-### Como popular `times_liga_oficial` (roster completo da liga)
+### Como popular `official_league_teams` (roster completo da liga)
 
 O único endpoint que lista todos os times de uma liga (`auth/liga/{slug}`)
 exige login — e **testamos em produção: a Globo responde `captchaBlank`**,
@@ -349,7 +256,7 @@ uma vez e cola no admin:
 3. Recarregue a página, ache a chamada pra `auth/liga/{slug}`
 4. Copie o JSON da resposta e cole em `admin/liga-oficial.php` → "Importar times"
 
-Isso popula `times_liga_oficial` com o `time_id` real de cada time.
+Isso popula `official_league_teams` com o `time_id` real de cada time.
 
 **Formato real confirmado em produção** (liga de pontos corridos):
 
@@ -383,10 +290,10 @@ time em toda a interface).
 **Bônus 2:** o array `ranking` já traz a tabela oficial pronta (posição,
 variação, vitórias/empates/derrotas, pontos de tabela e pontuação acumulada
 do Cartola) — é exatamente a "Tabela de Resultados" que aparece no site do
-Cartola. O import grava esse snapshot em `times_liga_oficial` (colunas
-`pc_*`), e `classificacao.php` exibe automaticamente esse layout (com badge
-"PRO" pra assinantes) quando a liga é do tipo `pontos_corridos`. Ligas
-`classica` continuam com o layout genérico (Geral / Por rodada).
+Cartola. O import grava esse snapshot em `official_league_teams` (colunas
+`standing_*`), e `classificacao.php` exibe automaticamente esse layout (com
+badge "PRO" pra assinantes) quando a liga é do tipo `round_robin`. Ligas
+`classic` continuam com o layout genérico (Geral / Por rodada).
 
 Pra rodadas novas que ainda não estavam no JSON quando você importou, **a
 partir daí a pontuação entra sozinha via endpoint público**
@@ -401,7 +308,7 @@ atualizar a Tabela de Resultados pra refletir a rodada mais recente.
 > par-a-par) — ainda não testamos essa em produção. Se o import falhar ou
 > vier vazio pra ela, me manda o JSON que eu ajusto o código.
 
-O login automático (`CartolaAuthService`, `CARTOLA_LIGA_OFICIAL_HABILITADA`)
+O login automático (`CartolaAuthService`, `CARTOLA_OFFICIAL_LEAGUE_ENABLED`)
 continua no código, desabilitado por padrão, documentado caso a Globo mude
 esse fluxo no futuro — mas não conte com ele.
 
@@ -409,37 +316,14 @@ esse fluxo no futuro — mas não conte com ele.
 
 Se alguém informar o nome do time na inscrição, o sistema ainda tenta casar
 automático via busca pública (`/times?q=`) — é um bônus, não é mais
-necessário pro ranking funcionar (isso já vem de `times_liga_oficial`).
-
-## ⚠️ Migração: premiação estruturada + cache de status do mercado
-
-Adição pura (sem apagar nada):
-
-```bash
-docker compose exec -T db mysql -u root -proot cartoleirao <<'EOF'
-ALTER TABLE liga_config
-    ADD COLUMN premio_1 DECIMAL(10,2) NULL AFTER valor_inscricao,
-    ADD COLUMN premio_2 DECIMAL(10,2) NULL AFTER premio_1,
-    ADD COLUMN premio_3 DECIMAL(10,2) NULL AFTER premio_2;
-
-CREATE TABLE IF NOT EXISTS mercado_status_cache (
-    id TINYINT PRIMARY KEY DEFAULT 1,
-    status_mercado INT NULL,
-    rodada_atual INT NULL,
-    atualizado_em DATETIME NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-INSERT INTO mercado_status_cache (id, status_mercado, rodada_atual, atualizado_em) VALUES (1, NULL, NULL, NULL)
-    ON DUPLICATE KEY UPDATE id = id;
-EOF
-```
+necessário pro ranking funcionar (isso já vem de `official_league_teams`).
 
 ## Novidades: badge de mercado, premiação estruturada, admin e inscrição redesenhados
 
 - **Badge de status do mercado** ao lado do logo (público e admin): "Mercado
-  Aberto/Fechado/Em Manutenção", lido de um cache local (`mercado_status_cache`)
-  atualizado pelo `cron/sync_jogos.php` — nunca bate na API ao vivo numa
-  requisição de página. Os códigos de `status_mercado` não são documentados
+  Aberto/Fechado/Em Manutenção", lido de um cache local (`market_status_cache`)
+  atualizado pelo `cron/sync_games.php` — nunca bate na API ao vivo numa
+  requisição de página. Os códigos de `status_code` não são documentados
   oficialmente; se aparecer um valor não mapeado, mostra "Status N" (me avise
   qual rodada/situação pra eu mapear certo).
 - **Premiação estruturada**: `admin/ligas.php` agora tem campos numéricos pro
@@ -454,43 +338,6 @@ EOF
   dourada" que só faz sentido em ranking), menu com pills em vez de
   sublinhado, e corrigido um link quebrado em `ligas.php` que apontava pro
   arquivo antigo `liga_oficial.php` (removido faz algumas mudanças).
-
-## ⚠️ Migração: premiação estendida pra 8 posições
-
-Adição pura (sem apagar nada):
-
-```bash
-docker compose exec -T db mysql -u root -proot cartoleirao <<'EOF'
-ALTER TABLE liga_config
-    ADD COLUMN premio_4 DECIMAL(10,2) NULL AFTER premio_3,
-    ADD COLUMN premio_5 DECIMAL(10,2) NULL AFTER premio_4,
-    ADD COLUMN premio_6 DECIMAL(10,2) NULL AFTER premio_5,
-    ADD COLUMN premio_7 DECIMAL(10,2) NULL AFTER premio_6,
-    ADD COLUMN premio_8 DECIMAL(10,2) NULL AFTER premio_7;
-EOF
-```
-
-## ⚠️ Migração: Rodadas Bônus
-
-Adição pura (sem apagar nada):
-
-```bash
-docker compose exec -T db mysql -u root -proot cartoleirao <<'EOF'
-CREATE TABLE IF NOT EXISTS rodadas_bonus (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    liga_id INT NOT NULL,
-    rodada_numero INT NOT NULL,
-    valor_premio DECIMAL(10,2) NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (liga_id) REFERENCES ligas(id) ON DELETE CASCADE,
-    UNIQUE KEY uq_liga_rodada_bonus (liga_id, rodada_numero)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-EOF
-```
-
-Em produção (cPanel), rode o mesmo `CREATE TABLE` acima direto no phpMyAdmin
-ou via `mysql -u ... -p ... cartoleirao < arquivo.sql`.
 
 ## ✨ Novidade: Rodada Bônus
 
@@ -513,11 +360,11 @@ ou via `mysql -u ... -p ... cartoleirao < arquivo.sql`.
 **mercado aberto pra escalação** — ou seja, ainda vai acontecer. A API
 pública de pontuação por time (`/time/id/{id}/{rodada}`), quando consultada
 pra uma rodada que ainda não rolou, não retorna erro nem vazio: ela devolve
-a pontuação "congelada" da última rodada fechada. O `cron/sync_pontuacao.php`
+a pontuação "congelada" da última rodada fechada. O `cron/sync_scores.php`
 sincronizava a rodada atual junto com a anterior, e acabava gravando esse
 valor errado como se fosse pontuação real da rodada nova.
 
-**Correção:** `cron/sync_pontuacao.php` agora **nunca sincroniza a rodada
+**Correção:** `cron/sync_scores.php` agora **nunca sincroniza a rodada
 atual** — só as duas anteriores (janela de segurança pra não perder nada).
 `classificacao.php` também foi corrigido: por padrão, mostra a última rodada
 que **tem pontuação de verdade** pra aquela liga, não a última rodada
@@ -528,11 +375,11 @@ número — no seu caso era a 22):
 
 ```bash
 docker compose exec -T db mysql -u root -proot cartoleirao -e "
-DELETE FROM pontuacoes WHERE rodada_id = (SELECT id FROM rodadas WHERE numero = 22);
+DELETE FROM scores WHERE round_id = (SELECT id FROM rounds WHERE number = 22);
 "
 ```
 
-Depois rode `cron/sync_pontuacao.php` de novo — ele vai preencher certinho
+Depois rode `cron/sync_scores.php` de novo — ele vai preencher certinho
 só as rodadas que já aconteceram.
 
 ## Novidades: premiação até 8 posições, admin redesenhado
@@ -548,20 +395,20 @@ só as rodadas que já aconteceram.
 
 ## Puxar o histórico completo de pontuação (todas as rodadas já jogadas)
 
-O cron normal (`sync_pontuacao.php`) só sincroniza as 2 últimas rodadas a
+O cron normal (`sync_scores.php`) só sincroniza as 2 últimas rodadas a
 cada execução, de propósito (pra não sobrecarregar a API a cada 15 min).
 Pra preencher o histórico inteiro de uma vez (da rodada 1 até a última já
 jogada), rode:
 
 ```bash
-docker compose exec app php scripts/backfill_pontuacao.php
+docker compose exec app php scripts/backfill_scores.php
 ```
 
 Ele descobre sozinho a rodada atual e para uma antes dela (nunca sincroniza
 a rodada que ainda não aconteceu). Se quiser um intervalo específico:
 
 ```bash
-docker compose exec app php scripts/backfill_pontuacao.php 1 15
+docker compose exec app php scripts/backfill_scores.php 1 15
 ```
 
 Demora um pouco (bate na API pública uma vez por time por rodada, com uma
@@ -594,3 +441,7 @@ pra lá (`admin/ligas.php`) seja mais robusto a longo prazo.
    posições com cores do site, redesign visual completo do admin
 10. ✅ Premiação com card claro/ícones/hover + parser do texto antigo,
     script de backfill de histórico completo de pontuação
+11. ✅ Refatoração completa: código e schema do banco traduzidos pra inglês
+    (PSR-1/4/12), remoção da cópia duplicada dentro de `public/`, Git
+    inicializado, crons renomeados mantendo mercado/jogos/pontuação 100%
+    automáticos (ver [CHANGELOG.md](CHANGELOG.md) pro histórico completo)
