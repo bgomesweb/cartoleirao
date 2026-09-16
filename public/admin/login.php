@@ -7,24 +7,24 @@ require_once __DIR__ . '/../../src/Config/bootstrap.php';
 use Cartoleirao\Auth\AdminAuth;
 use Cartoleirao\Helpers\Csrf;
 
-if (AdminAuth::logado()) {
+if (AdminAuth::isLoggedIn()) {
     redirect('index.php');
 }
 
-$erro = null;
+$error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!Csrf::valido($_POST['_csrf'] ?? null)) {
-        $erro = 'Sessão expirada, tente novamente.';
+    if (!Csrf::isValid($_POST['_csrf'] ?? null)) {
+        $error = 'Sessão expirada, tente novamente.';
     } else {
-        $usuario = trim((string) ($_POST['usuario'] ?? ''));
-        $senha = (string) ($_POST['senha'] ?? '');
+        $username = trim((string) ($_POST['usuario'] ?? ''));
+        $password = (string) ($_POST['senha'] ?? '');
 
-        if (AdminAuth::tentarLogin($usuario, $senha)) {
+        if (AdminAuth::attemptLogin($username, $password)) {
             redirect('index.php');
         }
 
-        $erro = 'Usuário ou senha inválidos.';
+        $error = 'Usuário ou senha inválidos.';
     }
 }
 
@@ -46,8 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <h3 class="mb-0">Admin Cartoleirão</h3>
             </div>
             <div class="card-body p-4">
-                <?php if ($erro): ?>
-                    <div class="alert alert-danger"><?= e($erro) ?></div>
+                <?php if ($error): ?>
+                    <div class="alert alert-danger"><?= e($error) ?></div>
                 <?php endif; ?>
                 <form method="post">
                     <?= Csrf::field() ?>

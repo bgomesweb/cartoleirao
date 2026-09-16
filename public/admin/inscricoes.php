@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../src/Config/bootstrap.php';
 
-use Cartoleirao\Models\Liga;
-use Cartoleirao\Models\Participante;
+use Cartoleirao\Models\League;
+use Cartoleirao\Models\Registrant;
 
-$ligas = Liga::todas();
-$ligaSelecionadaId = (int) ($_GET['liga_id'] ?? ($ligas[0]['id'] ?? 0));
-$filtroPago = $_GET['pago'] ?? null;
+$leagues = League::all();
+$selectedLeagueId = (int) ($_GET['liga_id'] ?? ($leagues[0]['id'] ?? 0));
+$paidFilter = $_GET['pago'] ?? null;
 
-$participantes = $ligaSelecionadaId ? Participante::porLiga($ligaSelecionadaId, $filtroPago) : [];
+$registrants = $selectedLeagueId ? Registrant::findByLeague($selectedLeagueId, $paidFilter) : [];
 
 require __DIR__ . '/includes/header.php';
 ?>
@@ -21,9 +21,9 @@ require __DIR__ . '/includes/header.php';
 <form method="get" class="row g-2 mb-4">
     <div class="col-auto">
         <select name="liga_id" class="form-select" onchange="this.form.submit()">
-            <?php foreach ($ligas as $liga): ?>
-                <option value="<?= (int) $liga['id'] ?>" <?= $ligaSelecionadaId === (int) $liga['id'] ? 'selected' : '' ?>>
-                    <?= e($liga['nome']) ?>
+            <?php foreach ($leagues as $league): ?>
+                <option value="<?= (int) $league['id'] ?>" <?= $selectedLeagueId === (int) $league['id'] ? 'selected' : '' ?>>
+                    <?= e($league['name']) ?>
                 </option>
             <?php endforeach; ?>
         </select>
@@ -31,8 +31,8 @@ require __DIR__ . '/includes/header.php';
     <div class="col-auto">
         <select name="pago" class="form-select" onchange="this.form.submit()">
             <option value="">Todos os status</option>
-            <option value="pago" <?= $filtroPago === 'pago' ? 'selected' : '' ?>>Pagos</option>
-            <option value="pendente" <?= $filtroPago === 'pendente' ? 'selected' : '' ?>>Pendentes</option>
+            <option value="paid" <?= $paidFilter === 'paid' ? 'selected' : '' ?>>Pagos</option>
+            <option value="pending" <?= $paidFilter === 'pending' ? 'selected' : '' ?>>Pendentes</option>
         </select>
     </div>
 </form>
@@ -51,29 +51,29 @@ require __DIR__ . '/includes/header.php';
         </tr>
         </thead>
         <tbody>
-        <?php if (empty($participantes)): ?>
+        <?php if (empty($registrants)): ?>
             <tr><td colspan="7" class="text-center text-muted py-4">Nenhuma inscrição encontrada.</td></tr>
         <?php endif; ?>
 
-        <?php foreach ($participantes as $p): ?>
-            <tr data-id="<?= (int) $p['id'] ?>">
-                <td><?= e($p['nome']) ?></td>
-                <td><?= e($p['email']) ?></td>
+        <?php foreach ($registrants as $r): ?>
+            <tr data-id="<?= (int) $r['id'] ?>">
+                <td><?= e($r['name']) ?></td>
+                <td><?= e($r['email']) ?></td>
                 <td>
-                    <a href="https://wa.me/55<?= e($p['whatsapp']) ?>" target="_blank" rel="noopener">
-                        <?= e($p['whatsapp']) ?>
+                    <a href="https://wa.me/55<?= e($r['whatsapp']) ?>" target="_blank" rel="noopener">
+                        <?= e($r['whatsapp']) ?>
                     </a>
                 </td>
-                <td><?= e($p['nome_time_cartola'] ?? '—') ?></td>
+                <td><?= e($r['cartola_team_name'] ?? '—') ?></td>
                 <td>
-                    <?php if ($p['vinculado_api']): ?>
+                    <?php if ($r['linked_to_api']): ?>
                         <span class="badge badge-vinculado">Vinculado</span>
                     <?php else: ?>
                         <span class="badge badge-nao-vinculado">Não vinculado</span>
-                        <?php if (!empty($p['nome_time_cartola'])): ?>
+                        <?php if (!empty($r['cartola_team_name'])): ?>
                             <button type="button" class="btn btn-sm btn-outline-primary btn-vincular"
-                                    data-id="<?= (int) $p['id'] ?>"
-                                    data-nome="<?= e($p['nome_time_cartola']) ?>">
+                                    data-id="<?= (int) $r['id'] ?>"
+                                    data-nome="<?= e($r['cartola_team_name']) ?>">
                                 Vincular
                             </button>
                         <?php endif; ?>
@@ -81,12 +81,12 @@ require __DIR__ . '/includes/header.php';
                 </td>
                 <td>
                     <button type="button"
-                            class="btn btn-sm <?= $p['pago'] ? 'btn-success' : 'btn-outline-danger' ?> btn-toggle-pago"
-                            data-id="<?= (int) $p['id'] ?>">
-                        <?= $p['pago'] ? 'Pago ✓' : 'Pendente' ?>
+                            class="btn btn-sm <?= $r['paid'] ? 'btn-success' : 'btn-outline-danger' ?> btn-toggle-pago"
+                            data-id="<?= (int) $r['id'] ?>">
+                        <?= $r['paid'] ? 'Pago ✓' : 'Pendente' ?>
                     </button>
                 </td>
-                <td><?= (new DateTime($p['created_at']))->format('d/m/Y H:i') ?></td>
+                <td><?= (new DateTime($r['created_at']))->format('d/m/Y H:i') ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>

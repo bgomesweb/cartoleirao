@@ -7,37 +7,37 @@ require_once __DIR__ . '/../../src/Config/bootstrap.php';
 use Cartoleirao\Auth\AdminAuth;
 use Cartoleirao\Helpers\Csrf;
 
-$mensagem = null;
-$erro = null;
+$message = null;
+$error = null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && Csrf::valido($_POST['_csrf'] ?? null)) {
-    $senhaAtual = (string) ($_POST['senha_atual'] ?? '');
-    $novaSenha = (string) ($_POST['nova_senha'] ?? '');
-    $confirmarSenha = (string) ($_POST['confirmar_senha'] ?? '');
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && Csrf::isValid($_POST['_csrf'] ?? null)) {
+    $currentPassword = (string) ($_POST['senha_atual'] ?? '');
+    $newPassword = (string) ($_POST['nova_senha'] ?? '');
+    $confirmPassword = (string) ($_POST['confirmar_senha'] ?? '');
 
-    if ($novaSenha !== $confirmarSenha) {
-        $erro = 'A confirmação não bate com a nova senha.';
+    if ($newPassword !== $confirmPassword) {
+        $error = 'A confirmação não bate com a nova senha.';
     } else {
-        $resultado = AdminAuth::alterarSenha((int) $_SESSION['admin_id'], $senhaAtual, $novaSenha);
-        if ($resultado === true) {
-            $mensagem = 'Senha alterada com sucesso.';
+        $result = AdminAuth::changePassword((int) $_SESSION['admin_id'], $currentPassword, $newPassword);
+        if ($result === true) {
+            $message = 'Senha alterada com sucesso.';
         } else {
-            $erro = $resultado;
+            $error = $result;
         }
     }
 }
 
-$tituloPagina = 'Configurações — Minha conta';
+$pageTitle = 'Configurações — Minha conta';
 require __DIR__ . '/includes/header.php';
 ?>
 
 <h2 class="page-title mb-4"><i class="fa-solid fa-gear"></i> Configurações — Minha conta</h2>
 
-<?php if ($mensagem): ?>
-    <div class="alert alert-success"><?= e($mensagem) ?></div>
+<?php if ($message): ?>
+    <div class="alert alert-success"><?= e($message) ?></div>
 <?php endif; ?>
-<?php if ($erro): ?>
-    <div class="alert alert-danger"><?= e($erro) ?></div>
+<?php if ($error): ?>
+    <div class="alert alert-danger"><?= e($error) ?></div>
 <?php endif; ?>
 
 <div class="row">
@@ -46,7 +46,7 @@ require __DIR__ . '/includes/header.php';
             <div class="card-body">
                 <h5 class="card-title mb-3">Alterar senha</h5>
                 <p class="text-muted small">
-                    Usuário atual: <strong><?= e(AdminAuth::usuarioAtual() ?? '') ?></strong>
+                    Usuário atual: <strong><?= e(AdminAuth::currentUsername() ?? '') ?></strong>
                 </p>
 
                 <form method="post">

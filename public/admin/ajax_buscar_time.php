@@ -8,19 +8,19 @@ use Cartoleirao\Auth\AdminAuth;
 use Cartoleirao\Services\CartolaApiClient;
 
 header('Content-Type: application/json');
-AdminAuth::exigirLoginAjax();
+AdminAuth::requireLoginAjax();
 
-$nome = trim((string) ($_GET['nome'] ?? ''));
+$name = trim((string) ($_GET['nome'] ?? ''));
 
-if ($nome === '') {
-    echo json_encode(['times' => []]);
+if ($name === '') {
+    echo json_encode(['teams' => []]);
     exit;
 }
 
 try {
-    $times = (new CartolaApiClient())->buscarTimesPorNome($nome);
+    $teams = (new CartolaApiClient())->searchTeamsByName($name);
 } catch (\Throwable $e) {
-    $times = [];
+    $teams = [];
 }
 
-echo json_encode(['times' => $times]);
+echo json_encode(['teams' => $teams]);

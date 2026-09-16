@@ -6,36 +6,36 @@ require_once __DIR__ . '/../../src/Config/bootstrap.php';
 
 use Cartoleirao\Auth\AdminAuth;
 use Cartoleirao\Helpers\Csrf;
-use Cartoleirao\Models\Liga;
-use Cartoleirao\Models\Participante;
+use Cartoleirao\Models\League;
+use Cartoleirao\Models\Registrant;
 use Cartoleirao\Services\EmailService;
 
 header('Content-Type: application/json');
-AdminAuth::exigirLoginAjax();
+AdminAuth::requireLoginAjax();
 
 $id = (int) ($_POST['id'] ?? 0);
 
-if (!Csrf::valido($_POST['_csrf'] ?? null) || $id <= 0) {
+if (!Csrf::isValid($_POST['_csrf'] ?? null) || $id <= 0) {
     http_response_code(400);
-    echo json_encode(['erro' => 'Requisição inválida']);
+    echo json_encode(['error' => 'Requisição inválida']);
     exit;
 }
 
-$participanteAntes = Participante::porId($id);
-$pago = Participante::alternarPago($id);
+$registrantBefore = Registrant::findById($id);
+$paid = Registrant::togglePaid($id);
 
-// Só dispara o e-mail de confirmação quando a baixa MARCA como pago (0 -> 1),
-// nunca ao desmarcar (1 -> 0) — reverter um pagamento por engano não deve
-// mandar e-mail nenhum pro participante.
-if ($pago && $participanteAntes && !$participanteAntes['pago']) {
-    $liga = Liga::porId((int) $participanteAntes['liga_id']);
-    if ($liga) {
+// Only fires the confirmation e-mail when the toggle MARKS it as paid
+// (0 -> 1), never when unmarking (1 -> 0) — reverting a payment by mistake
+// shouldn't send any e-mail to the registrant.
+if ($paid && $registrantBefore && !$registrantBefore['paid']) {
+    $league = League::findById((int) $registrantBefore['league_id']);
+    if ($league) {
         try {
-            (new EmailService())->enviarPagamentoConfirmado($participanteAntes, $liga);
+            (new EmailService())->sendPaymentConfirmed($registrantBefore, $league);
         } catch (\Throwable $e) {
             error_log('[ajax_toggle_pago] falha ao enviar e-mail de confirmação de pagamento: ' . $e->getMessage());
         }
     }
 }
 
-echo json_encode(['ok' => true, 'pago' => $pago]);
+echo json_encode(['ok' => true, 'paid' => $paid]);

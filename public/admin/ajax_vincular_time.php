@@ -6,28 +6,28 @@ require_once __DIR__ . '/../../src/Config/bootstrap.php';
 
 use Cartoleirao\Auth\AdminAuth;
 use Cartoleirao\Helpers\Csrf;
-use Cartoleirao\Models\Participante;
+use Cartoleirao\Models\Registrant;
 
 header('Content-Type: application/json');
-AdminAuth::exigirLoginAjax();
+AdminAuth::requireLoginAjax();
 
-if (!Csrf::valido($_POST['_csrf'] ?? null)) {
+if (!Csrf::isValid($_POST['_csrf'] ?? null)) {
     http_response_code(400);
-    echo json_encode(['erro' => 'Requisição inválida']);
+    echo json_encode(['error' => 'Requisição inválida']);
     exit;
 }
 
 $id = (int) ($_POST['id'] ?? 0);
-$timeId = (int) ($_POST['time_id'] ?? 0);
-$timeNome = trim((string) ($_POST['time_nome'] ?? ''));
-$timeSlug = trim((string) ($_POST['time_slug'] ?? ''));
+$teamId = (int) ($_POST['time_id'] ?? 0);
+$teamName = trim((string) ($_POST['time_nome'] ?? ''));
+$teamSlug = trim((string) ($_POST['time_slug'] ?? ''));
 
-if ($id <= 0 || $timeId <= 0) {
+if ($id <= 0 || $teamId <= 0) {
     http_response_code(400);
-    echo json_encode(['erro' => 'Dados incompletos']);
+    echo json_encode(['error' => 'Dados incompletos']);
     exit;
 }
 
-Participante::vincularTimeCartola($id, $timeId, $timeNome, $timeSlug);
+Registrant::linkCartolaTeam($id, $teamId, $teamName, $teamSlug);
 
 echo json_encode(['ok' => true]);
