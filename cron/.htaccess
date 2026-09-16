@@ -1,0 +1,5 @@
+# Bloqueia acesso direto via navegador a essa pasta, mesmo que o Document
+# Root tenha sido configurado errado. Camada extra de segurança — a
+# configuração correta (guia DEPLOY-CPANEL.md) já deixa isso fora do
+# alcance do navegador de qualquer forma.
+Require all denied

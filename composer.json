@@ -1,0 +1,16 @@
+{
+    "name": "bgomesweb/cartoleirao",
+    "description": "Sistema de ligas Cartoleirão - inscricoes, jogos e classificacao via API Cartola FC",
+    "type": "project",
+    "require": {
+        "php": ">=8.5",
+        "ext-pdo": "*",
+        "ext-curl": "*",
+        "ext-mbstring": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Cartoleirao\\": "src/"
+        }
+    }
+}

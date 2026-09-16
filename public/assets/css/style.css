@@ -1,0 +1,1249 @@
+:root {
+    /* Cores extraídas do logo do Cartoleirão */
+    --cartoleirao-navy: #00165a;
+    --cartoleirao-navy-claro: #0a2a7a;
+    --cartoleirao-laranja: #eb8202;
+    --cartoleirao-laranja-claro: #ffa733;
+    --cartoleirao-cinza: #cdcdcd;
+    --cartoleirao-cinza-claro: #f2f2f2;
+
+    /* Verde mantido como cor de ação/destaque */
+    --cartoleirao-verde: #0b6e4f;
+    --cartoleirao-verde-escuro: #06402b;
+}
+
+body {
+    background: var(--cartoleirao-cinza-claro);
+}
+
+.admin-body {
+    background:
+        radial-gradient(circle at 0% 0%, rgba(0, 22, 90, .05) 0, transparent 45%),
+        radial-gradient(circle at 100% 0%, rgba(235, 130, 2, .05) 0, transparent 45%),
+        var(--cartoleirao-cinza-claro);
+    min-height: 100vh;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--cartoleirao-navy);
+    box-shadow: 0 0 0 .2rem rgba(0, 22, 90, .15);
+}
+
+.form-check-input:checked {
+    background-color: var(--cartoleirao-verde);
+    border-color: var(--cartoleirao-verde);
+}
+
+.form-check-input:focus {
+    box-shadow: 0 0 0 .2rem rgba(11, 110, 79, .2);
+}
+
+/* ---------- Navbar ---------- */
+.navbar-cartoleirao {
+    background: linear-gradient(90deg, var(--cartoleirao-navy) 0%, var(--cartoleirao-navy-claro) 100%);
+    border-bottom: 3px solid var(--cartoleirao-laranja);
+}
+
+.navbar-cartoleirao .navbar-brand,
+.navbar-cartoleirao .nav-link {
+    color: #fff !important;
+    font-weight: 600;
+}
+
+.navbar-cartoleirao .navbar-brand img {
+    height: 42px;
+    margin-right: .5rem;
+}
+
+.badge-mercado {
+    font-size: .65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    padding: .3rem .6rem;
+    border-radius: 20px;
+    margin-left: .6rem;
+    vertical-align: middle;
+}
+
+.badge-mercado-aberto {
+    background: rgba(25, 135, 84, .18);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, .4);
+}
+
+.badge-mercado-fechado {
+    background: rgba(220, 53, 69, .18);
+    color: #ff6b7a;
+    border: 1px solid rgba(255, 107, 122, .4);
+}
+
+.badge-mercado-manutencao {
+    background: rgba(255, 193, 7, .18);
+    color: #ffd166;
+    border: 1px solid rgba(255, 209, 102, .4);
+}
+
+.navbar-cartoleirao .nav-link:hover {
+    color: var(--cartoleirao-laranja-claro) !important;
+}
+
+.navbar-cartoleirao .nav-link.active-link {
+    color: var(--cartoleirao-laranja-claro) !important;
+    text-decoration: underline;
+    text-decoration-color: var(--cartoleirao-laranja);
+    text-decoration-thickness: 2px;
+}
+
+.navbar-cartoleirao .badge.bg-warning {
+    background-color: var(--cartoleirao-laranja) !important;
+    color: #fff !important;
+}
+
+/* ---------- Hero ---------- */
+.hero-cartoleirao {
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at 20% 20%, var(--cartoleirao-navy-claro) 0%, var(--cartoleirao-navy) 55%, #000d33 100%);
+    color: #fff;
+    padding: 4.5rem 0 5rem;
+}
+
+.hero-cartoleirao::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0, rgba(255,255,255,.03) 2px, transparent 2px, transparent 12px);
+    pointer-events: none;
+}
+
+.hero-cartoleirao::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, var(--cartoleirao-laranja), var(--cartoleirao-verde), var(--cartoleirao-laranja));
+}
+
+.hero-cartoleirao h1 {
+    font-weight: 800;
+    font-size: 2.75rem;
+}
+
+.hero-cartoleirao .subtitulo {
+    font-size: 1.15rem;
+    color: #d9e0f5;
+}
+
+.hero-ball {
+    width: 140px;
+    height: 140px;
+    filter: drop-shadow(0 10px 25px rgba(0,0,0,.35));
+}
+
+/* Botão de ação principal: verde (o que você curtiu) */
+.btn-cartoleirao {
+    background: var(--cartoleirao-verde);
+    border-color: var(--cartoleirao-verde);
+    color: #fff;
+    font-weight: 600;
+}
+
+.btn-cartoleirao:hover {
+    background: var(--cartoleirao-verde-escuro);
+    border-color: var(--cartoleirao-verde-escuro);
+    color: #fff;
+}
+
+/* Botão secundário com toque laranja do logo */
+.btn-outline-light:hover {
+    background: var(--cartoleirao-laranja);
+    border-color: var(--cartoleirao-laranja);
+}
+
+/* ---------- Premiação ---------- */
+.premiacao-card {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.08);
+    height: 100%;
+}
+
+.premiacao-card .card-header {
+    background: var(--cartoleirao-navy);
+    color: #fff;
+    border-radius: 16px 16px 0 0 !important;
+    font-weight: 700;
+    border-bottom: 3px solid var(--cartoleirao-laranja);
+}
+
+/* ---------- Premiação (home) — card claro, chamativo, com hover ---------- */
+.page-title-home {
+    display: flex;
+    align-items: center;
+    font-weight: 800;
+    color: var(--cartoleirao-navy);
+}
+
+.premiacao-card-v2 {
+    background: #fff;
+    border-radius: 18px;
+    padding: 1.5rem;
+    height: 100%;
+    box-shadow: 0 8px 24px rgba(0, 22, 90, .08);
+    border-top: 4px solid var(--cartoleirao-laranja);
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.premiacao-card-v2:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 18px 40px rgba(0, 22, 90, .18);
+}
+
+.premiacao-v2-header {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    margin-bottom: 1.25rem;
+}
+
+.premiacao-v2-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--cartoleirao-laranja), var(--cartoleirao-laranja-claro));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    box-shadow: 0 6px 14px rgba(235, 130, 2, .4);
+    flex-shrink: 0;
+    transition: transform .25s ease;
+}
+
+.premiacao-card-v2:hover .premiacao-v2-icon {
+    transform: rotate(-8deg) scale(1.08);
+}
+
+.premiacao-v2-titulo {
+    font-weight: 800;
+    color: var(--cartoleirao-navy);
+    text-transform: uppercase;
+    font-size: 1rem;
+    letter-spacing: .5px;
+    line-height: 1.1;
+}
+
+.premiacao-v2-liga {
+    font-size: .8rem;
+    color: #888;
+    font-weight: 600;
+}
+
+.premio-v2-row {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    padding: .55rem .6rem;
+    border-radius: 10px;
+    margin-bottom: .3rem;
+    transition: background .15s ease, transform .15s ease;
+}
+
+.premio-v2-row:hover {
+    background: var(--cartoleirao-cinza-claro);
+    transform: translateX(5px);
+}
+
+.premio-v2-badge {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: .85rem;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.premio-v2-row.ouro .premio-v2-badge { background: linear-gradient(135deg, #f7d774, var(--cartoleirao-laranja)); }
+.premio-v2-row.prata .premio-v2-badge { background: linear-gradient(135deg, #d9d9d9, #9a9a9a); }
+.premio-v2-row.bronze .premio-v2-badge { background: linear-gradient(135deg, #d99a5b, #9c5f28); }
+.premio-v2-row.padrao .premio-v2-badge { background: var(--cartoleirao-navy); font-size: .8rem; }
+
+.premio-v2-label {
+    flex: 1;
+    font-weight: 700;
+    color: #222;
+    font-size: .92rem;
+}
+
+.premio-v2-row.padrao .premio-v2-label {
+    font-weight: 600;
+    font-size: .85rem;
+    color: #444;
+}
+
+.premio-v2-valor {
+    font-weight: 800;
+    color: var(--cartoleirao-verde);
+    font-size: .95rem;
+    white-space: nowrap;
+}
+
+.premio-v2-row.ouro .premio-v2-valor { color: var(--cartoleirao-laranja); }
+
+.premio-v2-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: .85rem;
+    padding-top: .9rem;
+    border-top: 1px dashed #e2e2e2;
+}
+
+.premio-v2-total-valor {
+    color: #fff;
+    background: var(--cartoleirao-verde);
+    padding: .3rem 1rem;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: .95rem;
+}
+
+.premiacao-v2-footer {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-top: 1.15rem;
+    flex-wrap: wrap;
+}
+/* ---------- Destaques da rodada ---------- */
+.destaques-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .75rem;
+}
+
+.destaque-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .65rem .9rem;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    margin-bottom: .5rem;
+    border-left: 4px solid var(--cartoleirao-cinza);
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.destaque-item:hover {
+    transform: translateX(3px);
+    box-shadow: 0 4px 14px rgba(0,0,0,.1);
+}
+
+.destaque-posicao {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--cartoleirao-navy);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: .85rem;
+    margin-right: .6rem;
+    flex-shrink: 0;
+}
+
+.destaque-item:nth-child(1) { border-left-color: var(--bonus-ouro, var(--cartoleirao-laranja)); background: linear-gradient(90deg, #fff8e6, #fff); }
+.destaque-item:nth-child(1) .destaque-posicao { background: linear-gradient(135deg, #f7d774, var(--cartoleirao-laranja)); color: #fff; }
+.destaque-item:nth-child(2) { border-left-color: #adb5bd; background: linear-gradient(90deg, #f5f5f6, #fff); }
+.destaque-item:nth-child(2) .destaque-posicao { background: linear-gradient(135deg, #d9d9d9, #9a9a9a); color: #333; }
+.destaque-item:nth-child(3) { border-left-color: #cd7f32; background: linear-gradient(90deg, #fbf1e6, #fff); }
+.destaque-item:nth-child(3) .destaque-posicao { background: linear-gradient(135deg, #d99a5b, #9c5f28); color: #fff; }
+
+/* ---------- Card de captura (usado como base pra imagem compartilhada) ---------- */
+.captura-card {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .08);
+    overflow: hidden;
+}
+
+.captura-card-header {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: 1.1rem 1.4rem;
+    background: linear-gradient(120deg, var(--cartoleirao-navy), var(--cartoleirao-navy-claro));
+    color: #fff;
+}
+
+.captura-card-trofeu {
+    font-size: 1.9rem;
+    line-height: 1;
+    filter: drop-shadow(0 0 6px rgba(235, 130, 2, .5));
+}
+
+.captura-card-titulo {
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: .2px;
+}
+
+.captura-card-liga {
+    font-size: .82rem;
+    color: rgba(255, 255, 255, .75);
+}
+
+.captura-card-corpo {
+    padding: 1.1rem 1.1rem .5rem;
+}
+
+.captura-card-footer {
+    text-align: center;
+    padding: .7rem;
+    font-size: .78rem;
+    font-weight: 700;
+    color: var(--cartoleirao-navy);
+    background: var(--cartoleirao-cinza-claro);
+    letter-spacing: .3px;
+}
+
+/* ---------- Jogos ---------- */
+.jogo-card {
+    border: none;
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.06);
+    border-top: 3px solid var(--cartoleirao-navy);
+}
+
+.escudo-time {
+    width: 42px;
+    height: 42px;
+    object-fit: contain;
+}
+
+/* ---------- Modo captura (aplicado só na hora de gerar a imagem pra
+   compartilhar — deixa tudo maior/mais espaçado pra ficar legível numa
+   tela de celular, mesmo com a tabela toda cheia de linhas) ---------- */
+.captura-card.modo-captura .captura-card-trofeu { font-size: 2.4rem; }
+.captura-card.modo-captura .captura-card-titulo { font-size: 1.5rem; }
+.captura-card.modo-captura .captura-card-liga { font-size: 1.05rem; }
+.captura-card.modo-captura .captura-card-header { padding: 1.6rem 1.9rem; }
+.captura-card.modo-captura .captura-card-footer { font-size: 1rem; padding: 1rem; }
+
+.captura-card.modo-captura .ranking-flex-header-row,
+.captura-card.modo-captura .tabela-pc-header-row {
+    font-size: 1.1rem;
+    padding: 1.4rem 1.9rem;
+}
+
+.captura-card.modo-captura .ranking-flex-row,
+.captura-card.modo-captura .tabela-pc-row {
+    padding: 1.35rem 1.9rem;
+    gap: .9rem;
+}
+
+.captura-card.modo-captura .ranking-flex-time,
+.captura-card.modo-captura .tabela-pc-col-time {
+    min-width: 280px;
+}
+
+.captura-card.modo-captura .ranking-flex-nome-time,
+.captura-card.modo-captura .tabela-pc-col-time { font-size: 1.35rem; }
+
+.captura-card.modo-captura .ranking-flex-sub { font-size: 1.05rem; }
+
+.captura-card.modo-captura .ranking-flex-pontos { font-size: 1.5rem; width: 175px; }
+.captura-card.modo-captura .tabela-pc-col-stat { font-size: 1.25rem; width: 90px; }
+
+.captura-card.modo-captura .ranking-flex-rodadas { font-size: 1.05rem; width: 110px; }
+
+.captura-card.modo-captura .ranking-posicao-badge,
+.captura-card.modo-captura .tabela-pc-posicao-badge {
+    width: 44px;
+    height: 44px;
+    font-size: 1.2rem;
+}
+
+.captura-card.modo-captura .ranking-flex-escudo {
+    width: 56px;
+    height: 56px;
+    margin-right: 1rem;
+}
+
+.captura-card.modo-captura .ranking-flex-variacao,
+.captura-card.modo-captura .tabela-pc-variacao { font-size: 1rem; }
+.captura-card.modo-captura .ranking-flex-variacao i,
+.captura-card.modo-captura .tabela-pc-variacao i { font-size: 1.3rem; }
+
+/* ---------- Classificação (cards estilo tabela de resultados) ---------- */
+.ranking-flex-card {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .06);
+    overflow: hidden;
+}
+
+.captura-card .ranking-flex-card {
+    box-shadow: none;
+    border-radius: 0;
+}
+
+.ranking-flex-header-row {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    font-weight: 800;
+    font-size: .8rem;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    gap: .5rem;
+}
+
+.ranking-flex-row {
+    display: flex;
+    align-items: center;
+    padding: .85rem 1.5rem;
+    border-bottom: 1px dashed #e3e3e3;
+    flex-wrap: wrap;
+    gap: .5rem;
+    transition: transform .15s ease, background-color .15s ease;
+}
+
+.ranking-flex-row:last-child {
+    border-bottom: none;
+}
+
+.ranking-flex-row:hover {
+    background-color: #f7f8fb;
+}
+
+.ranking-flex-variacao {
+    width: 34px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: .7rem;
+    line-height: 1;
+}
+
+.ranking-flex-variacao i {
+    font-size: 1rem;
+}
+
+.ranking-flex-pos {
+    width: 46px;
+}
+
+.ranking-flex-time {
+    flex: 1 1 260px;
+    min-width: 200px;
+}
+
+.ranking-flex-escudo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    margin-right: .75rem;
+}
+
+.ranking-flex-nome-time {
+    font-weight: 800;
+    color: #111;
+}
+
+.ranking-flex-sub {
+    font-size: .8rem;
+    color: #888;
+}
+
+.ranking-flex-pontos {
+    width: 130px;
+    text-align: right;
+    font-weight: 800;
+    color: #111;
+    font-size: 1.05rem;
+}
+
+.ranking-flex-rodadas {
+    width: 90px;
+    text-align: right;
+    font-weight: 700;
+    color: #666;
+    font-size: .85rem;
+}
+
+@media (max-width: 767px) {
+    .ranking-flex-header-row .ranking-flex-rodadas,
+    .ranking-flex-row .ranking-flex-rodadas { display: none; }
+    .ranking-flex-pontos { width: auto; margin-left: auto; }
+}
+
+.ranking-posicao-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--cartoleirao-cinza-claro);
+    color: #333;
+    font-weight: 700;
+    font-size: .85rem;
+}
+
+/* Destaque colorido pros 8 primeiros colocados — cada posição com uma cor */
+.ranking-flex-row.top-1 { background: linear-gradient(90deg, #fff8e6, #fff); box-shadow: inset 3px 0 0 #eb8202; }
+.ranking-flex-row.top-2 { background: linear-gradient(90deg, #f5f5f6, #fff); box-shadow: inset 3px 0 0 #9a9a9a; }
+.ranking-flex-row.top-3 { background: linear-gradient(90deg, #fbf1e6, #fff); box-shadow: inset 3px 0 0 #9c5f28; }
+.ranking-flex-row.top-4 { background: linear-gradient(90deg, #eef1fb, #fff); box-shadow: inset 3px 0 0 #0a2a7a; }
+.ranking-flex-row.top-5 { background: linear-gradient(90deg, #eafaf1, #fff); box-shadow: inset 3px 0 0 #0b6e4f; }
+.ranking-flex-row.top-6 { background: linear-gradient(90deg, #f6eefb, #fff); box-shadow: inset 3px 0 0 #8e44ad; }
+.ranking-flex-row.top-7 { background: linear-gradient(90deg, #e6f8fa, #fff); box-shadow: inset 3px 0 0 #0f9aa8; }
+.ranking-flex-row.top-8 { background: linear-gradient(90deg, #fdeef2, #fff); box-shadow: inset 3px 0 0 #d6336c; }
+
+.ranking-posicao-badge.is-top-1 { background: linear-gradient(135deg, #f7d774, #eb8202); color: #fff; }
+.ranking-posicao-badge.is-top-2 { background: linear-gradient(135deg, #d9d9d9, #9a9a9a); color: #333; }
+.ranking-posicao-badge.is-top-3 { background: linear-gradient(135deg, #d99a5b, #9c5f28); color: #fff; }
+.ranking-posicao-badge.is-top-4 { background: linear-gradient(135deg, #3d63c9, #0a2a7a); color: #fff; }
+.ranking-posicao-badge.is-top-5 { background: linear-gradient(135deg, #22b981, #0b6e4f); color: #fff; }
+.ranking-posicao-badge.is-top-6 { background: linear-gradient(135deg, #b477d1, #8e44ad); color: #fff; }
+.ranking-posicao-badge.is-top-7 { background: linear-gradient(135deg, #4fc7d3, #0f9aa8); color: #fff; }
+.ranking-posicao-badge.is-top-8 { background: linear-gradient(135deg, #ea6f96, #d6336c); color: #fff; }
+
+/* ---------- Inscrição ---------- */
+.card-inscricao {
+    max-width: 560px;
+    margin: 3rem auto;
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, .1);
+}
+
+.card-inscricao .card-header {
+    background: var(--cartoleirao-navy);
+    color: #fff;
+    border-radius: 16px 16px 0 0 !important;
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.card-inscricao .card-header.sem-pills {
+    border-bottom: 3px solid var(--cartoleirao-laranja);
+}
+
+.liga-pills-wrap {
+    display: flex;
+    justify-content: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+    padding: 1rem 1.25rem;
+    background: var(--cartoleirao-cinza-claro);
+    border-bottom: 3px solid var(--cartoleirao-laranja);
+}
+
+.liga-pill {
+    padding: .45rem 1.1rem;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: .85rem;
+    color: var(--cartoleirao-navy);
+    background: #fff;
+    border: 2px solid #e2e2e2;
+    text-decoration: none;
+    transition: all .15s ease;
+}
+
+.liga-pill:hover {
+    border-color: var(--cartoleirao-navy);
+    color: var(--cartoleirao-navy);
+    text-decoration: none;
+}
+
+.liga-pill.ativo {
+    background: var(--cartoleirao-navy);
+    border-color: var(--cartoleirao-navy);
+    color: #fff;
+}
+
+.liga-pill.fechada {
+    opacity: .65;
+}
+
+.liga-pill.fechada.ativo {
+    background: #6c757d;
+    border-color: #6c757d;
+}
+
+.valor-inscricao-tag {
+    display: inline-block;
+    background: var(--cartoleirao-cinza-claro);
+    padding: .5rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.25rem;
+    color: var(--cartoleirao-navy);
+    font-size: .9rem;
+}
+
+/* ---------- Badges de status (admin) ---------- */
+.badge-pago {
+    background: var(--cartoleirao-verde);
+}
+
+.badge-pendente {
+    background: #dc3545;
+}
+
+.badge-vinculado {
+    background: var(--cartoleirao-navy);
+}
+
+.badge-nao-vinculado {
+    background: #6c757d;
+}
+
+/* ---------- Admin ---------- */
+.admin-sidebar-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .06);
+    border-top: 3px solid var(--cartoleirao-laranja);
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.admin-sidebar-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(0, 22, 90, .12);
+}
+
+/* ---------- Admin: botões, badges, formulários ---------- */
+.admin-form-secao {
+    margin-bottom: 1.15rem;
+    padding-bottom: 1.15rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.admin-form-secao:last-of-type {
+    border-bottom: none;
+}
+
+.badge-laranja {
+    background: var(--cartoleirao-laranja);
+    color: #fff;
+    font-weight: 700;
+}
+
+.btn-outline-navy {
+    border: 2px solid var(--cartoleirao-navy);
+    color: var(--cartoleirao-navy);
+    background: transparent;
+    font-weight: 600;
+}
+
+.btn-outline-navy:hover {
+    background: var(--cartoleirao-navy);
+    border-color: var(--cartoleirao-navy);
+    color: #fff;
+}
+
+.btn-cartoleirao,
+.btn-cartoleirao-laranja,
+.btn-outline-navy,
+.btn-whatsapp {
+    border-radius: 8px;
+    transition: transform .1s ease, box-shadow .15s ease;
+}
+
+.btn-cartoleirao:hover,
+.btn-cartoleirao-laranja:hover,
+.btn-outline-navy:hover,
+.btn-whatsapp:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, .18);
+    transform: translateY(-2px);
+}
+
+.btn-cartoleirao:active,
+.btn-cartoleirao-laranja:active,
+.btn-outline-navy:active,
+.btn-whatsapp:active {
+    transform: translateY(0);
+}
+
+.btn-sm.btn-outline-primary,
+.btn-sm.btn-outline-danger {
+    border-radius: 6px;
+    font-weight: 600;
+    transition: transform .1s ease;
+}
+
+.btn-sm.btn-outline-primary:hover,
+.btn-sm.btn-outline-danger:hover {
+    transform: translateY(-1px);
+}
+
+/* Menu do admin: pills em vez de sublinhado */
+.navbar-cartoleirao .admin-nav-link {
+    color: rgba(255, 255, 255, .85) !important;
+    font-weight: 600;
+    padding: .4rem .9rem;
+    border-radius: 20px;
+    transition: background .15s ease;
+}
+
+.navbar-cartoleirao .admin-nav-link:hover {
+    background: rgba(255, 255, 255, .1);
+    color: #fff !important;
+}
+
+.navbar-cartoleirao .admin-nav-link.ativo {
+    background: var(--cartoleirao-laranja);
+    color: #fff !important;
+}
+
+/* Tabelas do admin */
+.table-admin {
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .05);
+}
+
+.table-admin tbody tr:nth-child(even) {
+    background: rgba(0, 22, 90, .015);
+}
+
+.table-admin tbody tr:hover {
+    background: rgba(235, 130, 2, .06) !important;
+}
+
+.table-admin th {
+    background: var(--cartoleirao-navy);
+    color: #fff;
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    font-weight: 700;
+    border: none;
+}
+
+.table-admin td {
+    vertical-align: middle;
+}
+
+footer {
+    color: var(--cartoleirao-navy) !important;
+}
+
+.text-cartoleirao-navy { color: var(--cartoleirao-navy) !important; }
+.text-cartoleirao-laranja { color: var(--cartoleirao-laranja) !important; }
+.bg-cartoleirao-navy { background: var(--cartoleirao-navy) !important; }
+
+.page-title {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    color: var(--cartoleirao-navy);
+    font-weight: 700;
+}
+
+.page-title i {
+    color: var(--cartoleirao-laranja);
+}
+
+.stat-block {
+    border-radius: 10px;
+    padding: .65rem .5rem;
+    background: var(--cartoleirao-cinza-claro);
+    border-left: 4px solid #d0d0d0;
+    transition: transform .15s ease;
+}
+
+.stat-block:hover {
+    transform: translateY(-2px);
+}
+
+.stat-block-navy { background: rgba(0, 22, 90, .06); border-left-color: var(--cartoleirao-navy); }
+.stat-block-verde { background: rgba(11, 110, 79, .08); border-left-color: var(--cartoleirao-verde); }
+.stat-block-vermelho { background: rgba(220, 53, 69, .08); border-left-color: #dc3545; }
+.stat-block-laranja { background: rgba(235, 130, 2, .08); border-left-color: var(--cartoleirao-laranja); }
+
+.btn-whatsapp {
+    background: #25D366;
+    border-color: #25D366;
+    color: #fff;
+    font-weight: 600;
+}
+
+.btn-whatsapp:hover {
+    background: #1ebe57;
+    border-color: #1ebe57;
+    color: #fff;
+}
+
+.variacao-up { color: #198754; font-weight: 700; }
+.variacao-down { color: #dc3545; font-weight: 700; }
+.variacao-same { color: #6c757d; font-weight: 700; }
+
+/* ---------- Tabela de Resultados (pontos corridos) ---------- */
+.tabela-pc-titulo {
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-size: 1.9rem;
+    color: #111;
+}
+
+.btn-cartoleirao-laranja {
+    background: var(--cartoleirao-laranja);
+    border-color: var(--cartoleirao-laranja);
+    color: #fff;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: .8rem;
+    padding: .5rem 1.1rem;
+    border-radius: 8px;
+}
+
+.btn-cartoleirao-laranja:hover {
+    background: #cf7202;
+    border-color: #cf7202;
+    color: #fff;
+}
+
+.tabela-pc-card {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .06);
+    overflow: hidden;
+}
+
+/* Quando a tabela já está dentro do card de captura (com cabeçalho de marca),
+   evita sombra/raio duplicados. */
+.captura-card .tabela-pc-card {
+    box-shadow: none;
+    border-radius: 0;
+}
+
+.tabela-pc-header-row {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    font-weight: 800;
+    font-size: .8rem;
+    letter-spacing: .5px;
+    color: #333;
+    border-bottom: 1px solid #eee;
+}
+
+.tabela-pc-row {
+    display: flex;
+    align-items: center;
+    padding: .85rem 1.5rem;
+    border-bottom: 1px dashed #e3e3e3;
+    flex-wrap: wrap;
+    transition: transform .15s ease, background-color .15s ease;
+}
+
+.tabela-pc-row:hover {
+    background-color: #f7f8fb;
+}
+
+.tabela-pc-row:last-child {
+    border-bottom: none;
+}
+
+.tabela-pc-row-ouro { background: linear-gradient(90deg, #fff8e6, #fff); box-shadow: inset 3px 0 0 var(--cartoleirao-laranja); }
+.tabela-pc-row-prata { background: linear-gradient(90deg, #f5f5f6, #fff); box-shadow: inset 3px 0 0 #adb5bd; }
+.tabela-pc-row-bronze { background: linear-gradient(90deg, #fbf1e6, #fff); box-shadow: inset 3px 0 0 #cd7f32; }
+
+.tabela-pc-variacao {
+    width: 34px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: .7rem;
+    line-height: 1;
+}
+
+.tabela-pc-variacao i {
+    font-size: 1rem;
+}
+
+.tabela-pc-sem-variacao {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #ccc;
+}
+
+.tabela-pc-posicao {
+    width: 42px;
+    font-weight: 800;
+    color: #111;
+}
+
+.tabela-pc-posicao-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    height: 30px;
+    padding: 0 .3rem;
+    border-radius: 999px;
+    background: var(--cartoleirao-cinza-claro);
+    color: #333;
+    font-weight: 800;
+    font-size: .85rem;
+}
+
+.tabela-pc-posicao-badge.is-ouro { background: linear-gradient(135deg, #f7d774, var(--cartoleirao-laranja)); color: #fff; }
+.tabela-pc-posicao-badge.is-prata { background: linear-gradient(135deg, #d9d9d9, #9a9a9a); color: #333; }
+.tabela-pc-posicao-badge.is-bronze { background: linear-gradient(135deg, #d99a5b, #9c5f28); color: #fff; }
+
+.tabela-pc-col-time {
+    flex: 1 1 260px;
+    min-width: 200px;
+}
+
+.tabela-pc-col-stat {
+    width: 70px;
+    text-align: center;
+    font-weight: 700;
+    color: #222;
+}
+
+.tabela-pc-escudo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    margin-right: .75rem;
+}
+
+.tabela-pc-nome-time {
+    font-weight: 800;
+    color: #111;
+}
+
+.pc-badge-pro {
+    background: var(--cartoleirao-laranja);
+    color: #fff;
+    font-size: .6rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.tabela-pc-dono {
+    font-size: .8rem;
+    color: #888;
+}
+
+.tabela-pc-legenda {
+    padding: 1rem 1.5rem;
+    font-size: .78rem;
+    color: #888;
+    border-top: 1px dashed #e3e3e3;
+}
+
+@media (max-width: 767px) {
+    .tabela-pc-header-row .tabela-pc-col-stat:nth-child(n+3) { display: none; }
+    .tabela-pc-row .tabela-pc-col-stat { width: 46px; font-size: .85rem; }
+}
+
+/* ============================================================
+   Rodada Bônus — modal dourado + destaque do campeão na classificação
+   ============================================================ */
+:root {
+    --bonus-ouro: #ffd54a;
+    --bonus-ouro-escuro: #b8860b;
+    --bonus-ouro-claro: #fff3cf;
+}
+
+.modal-bonus-content {
+    background: radial-gradient(circle at 50% 0%, #241804 0%, #0c0800 70%);
+    border: 2px solid var(--bonus-ouro);
+    border-radius: 18px;
+    box-shadow: 0 0 50px rgba(255, 213, 74, .45);
+    position: relative;
+    overflow: hidden;
+}
+
+.modal-bonus-glow {
+    position: absolute;
+    inset: -30% -20% auto -20%;
+    height: 220px;
+    background: radial-gradient(circle, rgba(255, 213, 74, .35), transparent 70%);
+    pointer-events: none;
+}
+
+.modal-bonus-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 2;
+    opacity: .8;
+}
+
+.modal-bonus-trophy {
+    position: relative;
+    font-size: 3.5rem;
+    line-height: 1;
+    filter: drop-shadow(0 0 14px rgba(255, 213, 74, .7));
+    animation: bonus-trophy-bounce 1.6s ease-in-out infinite;
+}
+
+@keyframes bonus-trophy-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+.modal-bonus-tag {
+    position: relative;
+    display: inline-block;
+    margin-top: .75rem;
+    padding: .35rem 1rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    font-size: .78rem;
+    color: #1c1200;
+    background: linear-gradient(135deg, var(--bonus-ouro-claro), var(--bonus-ouro));
+    border-radius: 999px;
+}
+
+.modal-bonus-rodada {
+    position: relative;
+    margin-top: .75rem;
+    font-weight: 800;
+    font-size: 2.2rem;
+    background: linear-gradient(135deg, var(--bonus-ouro-claro), var(--bonus-ouro) 50%, var(--bonus-ouro-escuro));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.modal-bonus-sub {
+    position: relative;
+    color: #f2e2b0;
+    max-width: 320px;
+    margin: .5rem auto 0;
+}
+
+.modal-bonus-premios {
+    position: relative;
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+}
+
+.modal-bonus-premio-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 213, 74, .08);
+    border: 1px solid rgba(255, 213, 74, .35);
+    border-radius: 10px;
+    padding: .6rem 1rem;
+}
+
+.modal-bonus-liga {
+    color: #f2e2b0;
+    font-weight: 600;
+    font-size: .9rem;
+}
+
+.modal-bonus-valor {
+    color: var(--bonus-ouro);
+    font-weight: 800;
+    font-size: 1.1rem;
+}
+
+.modal-bonus-btn {
+    position: relative;
+    background: linear-gradient(135deg, var(--bonus-ouro-claro), var(--bonus-ouro));
+    border: none;
+    color: #1c1200;
+    font-weight: 700;
+    padding: .6rem 2rem;
+    border-radius: 999px;
+}
+
+.modal-bonus-btn:hover {
+    color: #1c1200;
+    filter: brightness(1.08);
+}
+
+/* Faixa de aviso "Rodada X é Bônus" na página de classificação */
+.faixa-rodada-bonus {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-radius: 14px;
+    background: linear-gradient(90deg, #241804, #3a2a06);
+    border: 1px solid rgba(255, 213, 74, .5);
+    box-shadow: 0 0 24px rgba(255, 213, 74, .18);
+}
+
+.faixa-rodada-bonus-trofeu {
+    font-size: 2rem;
+    filter: drop-shadow(0 0 8px rgba(255, 213, 74, .6));
+}
+
+.faixa-rodada-bonus-titulo {
+    color: var(--bonus-ouro);
+    font-weight: 800;
+    font-size: 1.05rem;
+}
+
+.faixa-rodada-bonus-sub {
+    color: #f2e2b0;
+    font-size: .9rem;
+}
+
+/* Destaque do campeão da rodada bônus na classificação */
+.ranking-flex-row.linha-campeao-bonus {
+    background: linear-gradient(90deg, rgba(255, 213, 74, .28), rgba(255, 213, 74, .08)) !important;
+    box-shadow: inset 3px 0 0 var(--bonus-ouro-escuro) !important;
+}
+
+.ranking-flex-row.linha-campeao-bonus .ranking-flex-nome-time,
+.ranking-flex-row.linha-campeao-bonus .ranking-flex-pontos {
+    font-weight: 800;
+}
+
+.selo-campeao-bonus {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    margin-left: .5rem;
+    padding: .15rem .6rem;
+    font-size: .72rem;
+    font-weight: 800;
+    color: #1c1200;
+    background: linear-gradient(135deg, var(--bonus-ouro-claro), var(--bonus-ouro));
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+@media (max-width: 575px) {
+    .faixa-rodada-bonus {
+        flex-direction: column;
+        text-align: center;
+    }
+}

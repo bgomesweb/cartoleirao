@@ -1,0 +1,45 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * ATENÇÃO: copie este arquivo pra "config.local.php" (sem o .example) e
+ * preencha com os dados reais do seu hosting. O config.local.php NUNCA deve
+ * ir pro Git (já está no .gitignore) — ele fica só no servidor.
+ *
+ * Esse arquivo só é necessário em hospedagem compartilhada tipo cPanel. No
+ * Docker local (desenvolvimento), não crie esse arquivo — as variáveis já
+ * vêm do docker-compose.yml + .env normalmente.
+ *
+ * Onde colocar em produção: FORA da pasta pública (public_html), no
+ * diretório raiz do projeto — nunca dentro da pasta que o navegador acessa.
+ */
+
+// --- Banco de dados (crie em cPanel > MySQL Databases) ---
+putenv('DB_HOST=localhost');
+putenv('DB_PORT=3306');
+putenv('DB_DATABASE=usuario_cartoleirao');   // nome real do banco no cPanel (com o prefixo da conta)
+putenv('DB_USERNAME=usuario_cartoleirao');   // usuário real do banco no cPanel (com o prefixo da conta)
+putenv('DB_PASSWORD=TROQUE_ESTA_SENHA');
+
+// --- API do Cartola FC (pública, não precisa mudar) ---
+putenv('CARTOLA_API_BASE=https://api.cartola.globo.com');
+
+// --- Login pra liga oficial (deixe desabilitado — ver README, não funciona por causa do captcha) ---
+putenv('CARTOLA_LIGA_OFICIAL_HABILITADA=false');
+putenv('CARTOLA_LOGIN_EMAIL=');
+putenv('CARTOLA_LOGIN_SENHA=');
+
+// --- URL pública do site (usado em textos/links, ajuste pro seu domínio) ---
+putenv('APP_URL=https://seudominio.com.br');
+
+// --- Segredo do bookmarklet de captura automática de token (ver admin/cartola-bookmarklet.php) ---
+// Gere um valor aleatório, ex: rode `php -r "echo bin2hex(random_bytes(32));"` e cole o resultado abaixo.
+putenv('CARTOLA_BOOKMARKLET_SECRET=');
+
+// --- E-mails de inscrição/confirmação de pagamento ---
+putenv('EMAIL_REMETENTE=nao-responda@bgomesweb.com.br');
+putenv('EMAIL_REMETENTE_NOME=Cartoleirão');
+putenv('PIX_CHAVE=19998970090');
+putenv('PIX_FAVORECIDO=Bruno Gomes da Silva');
+putenv('ADMIN_LIGA_NOME=Bruno Gomes');

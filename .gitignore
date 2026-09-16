@@ -1,0 +1,13 @@
+/vendor/
+/config.local.php
+/.idea/
+*.log
+error_log
+/public/error_log
+/public/cartola.zip
+/public/public/
+/public/src/
+/public/vendor/
+/public/scripts/
+/public/cron/
+.DS_Store

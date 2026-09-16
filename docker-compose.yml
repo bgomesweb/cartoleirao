@@ -1,0 +1,98 @@
+services:
+  app:
+    build:
+      context: ./docker/php
+    container_name: cartoleirao_app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./:/var/www/html
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-cartoleirao}
+      DB_USERNAME: ${DB_USERNAME:-cartoleirao}
+      DB_PASSWORD: ${DB_PASSWORD:-cartoleirao}
+      CARTOLA_API_BASE: ${CARTOLA_API_BASE:-https://api.cartola.globo.com}
+      CARTOLA_LOGIN_EMAIL: ${CARTOLA_LOGIN_EMAIL:-}
+      CARTOLA_LOGIN_SENHA: ${CARTOLA_LOGIN_SENHA:-}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      CARTOLA_BOOKMARKLET_SECRET: ${CARTOLA_BOOKMARKLET_SECRET:-}
+      EMAIL_REMETENTE: ${EMAIL_REMETENTE:-nao-responda@localhost}
+      EMAIL_REMETENTE_NOME: ${EMAIL_REMETENTE_NOME:-Cartoleirão}
+      PIX_CHAVE: ${PIX_CHAVE:-19998970090}
+      PIX_FAVORECIDO: ${PIX_FAVORECIDO:-Bruno Gomes da Silva}
+      ADMIN_LIGA_NOME: ${ADMIN_LIGA_NOME:-Bruno Gomes}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - cartoleirao
+
+  db:
+    image: mysql:8.0
+    container_name: cartoleirao_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-cartoleirao}
+      MYSQL_USER: ${DB_USERNAME:-cartoleirao}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-cartoleirao}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - cartoleirao
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: cartoleirao_pma
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+      PMA_USER: root
+      PMA_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    ports:
+      - "${PMA_PORT:-8081}:80"
+    depends_on:
+      - db
+    networks:
+      - cartoleirao
+
+  # Container leve só pra rodar os crons de sincronização com a API do Cartola
+  cron:
+    build:
+      context: ./docker/php
+    container_name: cartoleirao_cron
+    restart: unless-stopped
+    volumes:
+      - ./:/var/www/html
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-cartoleirao}
+      DB_USERNAME: ${DB_USERNAME:-cartoleirao}
+      DB_PASSWORD: ${DB_PASSWORD:-cartoleirao}
+      CARTOLA_API_BASE: ${CARTOLA_API_BASE:-https://api.cartola.globo.com}
+      CARTOLA_LOGIN_EMAIL: ${CARTOLA_LOGIN_EMAIL:-}
+      CARTOLA_LOGIN_SENHA: ${CARTOLA_LOGIN_SENHA:-}
+    entrypoint: ["php", "/var/www/html/cron/scheduler.php"]
+    depends_on:
+      - app
+    networks:
+      - cartoleirao
+
+networks:
+  cartoleirao:
+    driver: bridge
+
+volumes:
+  db_data:

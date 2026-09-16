@@ -1,0 +1,221 @@
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../../src/Config/bootstrap.php';
+
+use Cartoleirao\Helpers\Csrf;
+use Cartoleirao\Models\Liga;
+use Cartoleirao\Services\CartolaAuthService;
+use Cartoleirao\Services\SincronizacaoService;
+
+$auth = new CartolaAuthService();
+
+$mensagem = null;
+$erro = null;
+$resultadosTeste = null;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && Csrf::valido($_POST['_csrf'] ?? null)) {
+    if (isset($_POST['salvar_token'])) {
+        $tokenColado = trim((string) ($_POST['token'] ?? ''));
+
+        try {
+            $auth->salvarTokenManual($tokenColado);
+            $mensagem = 'Token salvo. A cron [sync_liga_oficial] vai usar esse token nas próximas '
+                . 'chamadas (se CARTOLA_LIGA_OFICIAL_HABILITADA=true estiver configurado no ambiente).';
+        } catch (\InvalidArgumentException $e) {
+            $erro = 'Cole o token antes de salvar.';
+        }
+    }
+
+    if (isset($_POST['invalidar_token'])) {
+        $auth->invalidarToken();
+        $mensagem = 'Token removido. A próxima sincronização vai exigir um novo token colado aqui.';
+    }
+
+    if (isset($_POST['testar_agora'])) {
+        $ligas = Liga::comSlugOficial();
+
+        if (empty($ligas)) {
+            $erro = 'Nenhuma liga tem cartola_liga_slug configurado — não tem o que testar.';
+        } else {
+            $servico = new SincronizacaoService();
+            $resultadosTeste = [];
+
+            foreach ($ligas as $liga) {
+                $resultado = $servico->sincronizarTimesDaLigaOficial((int) $liga['id'], $liga['cartola_liga_slug'], null, $liga['tipo'] ?? 'classica');
+                $resultadosTeste[] = [
+                    'liga' => $liga['nome'],
+                    'resultado' => $resultado,
+                    'erro' => $resultado === null ? ($servico->getUltimoErroApi() ?? $auth->getUltimoErro()) : null,
+                ];
+            }
+        }
+    }
+}
+
+$status = $auth->statusToken();
+$loginHabilitado = (getenv('CARTOLA_LIGA_OFICIAL_HABILITADA') ?: 'false') === 'true';
+
+$tituloPagina = 'Login Globo/Cartola';
+require __DIR__ . '/includes/header.php';
+?>
+
+<h2 class="page-title mb-4"><i class="fa-solid fa-right-to-bracket"></i> Login na Globo (Cartola)</h2>
+
+<p class="text-muted">
+    O login automático da Globo (email/senha) sempre esbarra em captcha — não dá pra automatizar
+    isso de forma legítima. O caminho que funciona: você loga <strong>normalmente no seu navegador</strong>
+    (aí é um humano de verdade resolvendo o captcha), pega o token de sessão que a Globo gerou pra
+    você, e cola aqui. A partir daí, a cron <code>sync_liga_oficial</code> reaproveita esse token —
+    sem precisar logar de novo — até ele expirar.
+</p>
+
+<div class="alert alert-info small">
+    <i class="fa-solid fa-wand-magic-sparkles"></i> Cansado de copiar do DevTools toda vez que expira?
+    Tem um <a href="cartola-bookmarklet.php">bookmarklet</a> que captura o token com um clique, direto
+    da aba do cartola.globo.com — sem abrir o DevTools.
+</div>
+
+<?php if ($mensagem): ?>
+    <div class="alert alert-success"><?= e($mensagem) ?></div>
+<?php endif; ?>
+<?php if ($erro): ?>
+    <div class="alert alert-danger"><?= e($erro) ?></div>
+<?php endif; ?>
+
+<div class="row">
+    <div class="col-lg-5 mb-4">
+        <div class="card admin-sidebar-card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Status do token</h5>
+
+                <?php if (!$status['presente']): ?>
+                    <div class="alert alert-warning small mb-3">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Nenhum token salvo ainda.
+                    </div>
+                <?php elseif ($status['valido']): ?>
+                    <div class="alert alert-success small mb-3">
+                        <i class="fa-solid fa-circle-check"></i> Token válido — expira em
+                        <strong><?= e((string) $status['horas_restantes']) ?>h</strong>
+                        (<?= e((string) $status['expira_em']) ?>)<?= $status['expiracao_real'] ? '' : ' — estimativa' ?>.
+                        <?php if ($status['expiracao_real']): ?>
+                            <div class="mt-1">Data lida direto do token (claim <code>exp</code>), não é chute.</div>
+                        <?php endif; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="alert alert-danger small mb-3">
+                        <i class="fa-solid fa-circle-xmark"></i> Token expirou em
+                        <?= e((string) $status['expira_em']) ?>. Cole um novo abaixo.
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($status['presente']): ?>
+                    <p class="text-muted small mb-1">Salvo em: <?= e((string) $status['autenticado_em']) ?></p>
+                <?php endif; ?>
+
+                <p class="small mb-2">
+                    Cron habilitada (<code>CARTOLA_LIGA_OFICIAL_HABILITADA</code>):
+                    <?php if ($loginHabilitado): ?>
+                        <span class="badge badge-pago">sim</span>
+                    <?php else: ?>
+                        <span class="badge badge-pendente">não</span>
+                    <?php endif; ?>
+                </p>
+                <?php if (!$loginHabilitado): ?>
+                    <p class="text-muted small">
+                        Mesmo com o token válido, a cron não roda essa parte enquanto
+                        <code>CARTOLA_LIGA_OFICIAL_HABILITADA</code> não estiver <code>true</code> no
+                        ambiente (variável de ambiente / docker-compose — isso não dá pra mudar por
+                        aqui, é configuração de infraestrutura). Depois de colar um token válido, ative
+                        essa variável e reinicie a cron.
+                    </p>
+                <?php endif; ?>
+
+                <?php if ($status['presente']): ?>
+                    <form method="post" class="mt-3" onsubmit="return confirm('Remover o token salvo?');">
+                        <?= Csrf::field() ?>
+                        <button type="submit" name="invalidar_token" value="1" class="btn btn-sm btn-outline-danger">
+                            <i class="fa-solid fa-trash"></i> Invalidar token
+                        </button>
+                    </form>
+                <?php endif; ?>
+
+                <?php if ($status['presente'] && $status['valido']): ?>
+                    <form method="post" class="mt-2">
+                        <?= Csrf::field() ?>
+                        <button type="submit" name="testar_agora" value="1" class="btn btn-sm btn-outline-primary">
+                            <i class="fa-solid fa-vial"></i> Testar agora (sincronizar todas as ligas)
+                        </button>
+                    </form>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7 mb-4">
+        <div class="card admin-sidebar-card h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fa-solid fa-clipboard-list"></i> Como pegar o token</h5>
+                <ol class="text-muted small">
+                    <li>Faça login em <a href="https://cartola.globo.com" target="_blank" rel="noopener">cartola.globo.com</a> no seu navegador, normalmente (resolvendo o captcha se pedir)</li>
+                    <li>Com a sessão aberta, aperte F12 (DevTools) → aba <strong>Network</strong></li>
+                    <li>Recarregue a página da sua liga e ache uma chamada <strong>GET</strong> (status 200, não a <code>OPTIONS</code>) pra algo em <code>/auth/liga/&lt;slug&gt;</code></li>
+                    <li>Clique nela → aba <strong>Headers</strong> → role até "Request Headers" → ache <code>authorization</code></li>
+                    <li>Copie só o valor <strong>depois</strong> de "Bearer " (o token em si, um JWT longo começando com <code>eyJ...</code>) e cole no campo abaixo — tudo bem se colar com o "Bearer " junto, o sistema remove sozinho</li>
+                </ol>
+                <div class="alert alert-warning small">
+                    <i class="fa-solid fa-shield-halved"></i> Esse token dá acesso à sua conta Globo.
+                    Trate como senha: não compartilhe em prints, chats ou tickets de suporte — cole
+                    só aqui, direto do DevTools pro campo abaixo.
+                </div>
+                <p class="text-muted small">
+                    A gente lê a expiração real desse token automaticamente (não é mais uma estimativa
+                    de 12h). Quando expirar, é só repetir o processo e colar de novo.
+                </p>
+
+                <form method="post">
+                    <?= Csrf::field() ?>
+                    <label for="token" class="form-label small fw-bold">Token (header <code>authorization</code>, sem o "Bearer ")</label>
+                    <textarea id="token" name="token" class="form-control mb-2" rows="3"
+                              placeholder="Cole aqui o access_token (JWT)" required></textarea>
+                    <button type="submit" name="salvar_token" value="1" class="btn btn-cartoleirao">
+                        <i class="fa-solid fa-floppy-disk"></i> Salvar token
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php if ($resultadosTeste !== null): ?>
+    <div class="card admin-sidebar-card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Resultado do teste</h5>
+            <ul class="small mb-0">
+                <?php foreach ($resultadosTeste as $item): ?>
+                    <li class="mb-2">
+                        <strong><?= e($item['liga']) ?></strong>:
+                        <?php if ($item['resultado'] === null): ?>
+                            <span class="text-danger">falhou — <?= e((string) ($item['erro'] ?? 'motivo desconhecido')) ?></span>
+                        <?php else: ?>
+                            <span class="text-success">
+                                <?= (int) $item['resultado']['total'] ?> times,
+                                <?= (int) $item['resultado']['vinculados'] ?> vinculados,
+                                <?= (int) $item['resultado']['sem_correspondencia'] ?> sem correspondência
+                            </span>
+                        <?php endif; ?>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    </div>
+<?php endif; ?>
+
+<p class="text-muted small">
+    Prefere não mexer com DevTools? A página <a href="liga-oficial.php">Liga Oficial</a> também aceita
+    colar o JSON completo da resposta direto, sem precisar de token — mas aí é manual a cada
+    sincronização, sem a cron rodar sozinha.
+</p>
+
+<?php require __DIR__ . '/includes/footer.php'; ?>
