@@ -1,46 +1,49 @@
 <?php
 /**
- * Scheduler simples (roda em loop dentro do container "cron" do docker-compose).
- * Em produção (hospedagem compartilhada), troque isso por entradas reais no crontab:
+ * Simple scheduler (runs in a loop inside the "cron" container of
+ * docker-compose). In production (shared hosting), replace this with real
+ * crontab entries:
  *
- *   (a cada 10 min) php /caminho/cartoleirao/cron/sync_jogos.php
- *   (a cada 15 min) php /caminho/cartoleirao/cron/sync_pontuacao.php
+ *   (every 10 min) php /path/to/cartoleirao/cron/sync_games.php
+ *   (every 15 min) php /path/to/cartoleirao/cron/sync_scores.php
  *
- * sync_liga_oficial.php ESTÁ no loop automático (a cada 20 min). O próprio
- * script se protege sozinho: se CARTOLA_LIGA_OFICIAL_HABILITADA != true ele
- * só loga e sai (exit 0), e se não houver token válido em cache (colado em
- * admin/cartola-login.php) ele também sai sem erro, só registrando em
- * sync_log. Ou seja, é seguro deixar sempre no loop — ele fica inofensivo
- * até você colar um token; a partir daí passa a rodar sozinho reaproveitando
- * esse token (ver aviso em admin/liga-oficial.php).
+ * sync_official_league.php IS in the automatic loop (every 20 min). The
+ * script protects itself: if CARTOLA_OFFICIAL_LEAGUE_ENABLED != true it
+ * just logs and exits (exit 0), and if there's no valid token cached
+ * (pasted in admin/cartola-login.php) it also exits without error, only
+ * logging to sync_log. In other words, it's safe to always leave it in the
+ * loop — it stays harmless until you paste a token; from then on it starts
+ * running on its own, reusing that token (see the notice in
+ * admin/liga-oficial.php).
  *
- * Aqui no ambiente local ele só dorme e chama os scripts via include, pra já
- * deixar o comportamento "vivo" assim que o docker compose up for feito.
+ * Here, in the local environment, it just sleeps and calls the scripts via
+ * include, to make the "live" behavior available as soon as docker compose
+ * up runs.
  */
 
-$intervalos = [
-    'sync_jogos.php' => 600,           // 10 min
-    'sync_pontuacao.php' => 900,       // 15 min
-    'sync_liga_oficial.php' => 1200,   // 20 min (só faz algo de fato se houver token válido em cache)
+$intervals = [
+    'sync_games.php' => 600,             // 10 min
+    'sync_scores.php' => 900,            // 15 min
+    'sync_official_league.php' => 1200,  // 20 min (only actually does something if there's a valid cached token)
 ];
 
-$ultimaExecucao = [];
+$lastRun = [];
 
 echo "[scheduler] iniciado " . date('Y-m-d H:i:s') . PHP_EOL;
 
 while (true) {
-    foreach ($intervalos as $script => $segundos) {
-        $agora = time();
-        if (!isset($ultimaExecucao[$script]) || ($agora - $ultimaExecucao[$script]) >= $segundos) {
-            $caminho = __DIR__ . '/' . $script;
-            if (file_exists($caminho)) {
+    foreach ($intervals as $script => $seconds) {
+        $now = time();
+        if (!isset($lastRun[$script]) || ($now - $lastRun[$script]) >= $seconds) {
+            $path = __DIR__ . '/' . $script;
+            if (file_exists($path)) {
                 echo "[scheduler] rodando {$script} em " . date('H:i:s') . PHP_EOL;
-                // isolar em processo próprio evita que um erro derrube o loop inteiro
-                exec('php ' . escapeshellarg($caminho) . ' 2>&1', $saida, $codigo);
-                echo implode(PHP_EOL, $saida) . PHP_EOL;
-                $saida = [];
+                // isolating in its own process prevents one script's error from taking down the whole loop
+                exec('php ' . escapeshellarg($path) . ' 2>&1', $output, $exitCode);
+                echo implode(PHP_EOL, $output) . PHP_EOL;
+                $output = [];
             }
-            $ultimaExecucao[$script] = $agora;
+            $lastRun[$script] = $now;
         }
     }
     sleep(30);
