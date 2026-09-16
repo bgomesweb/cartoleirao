@@ -4,97 +4,97 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/Config/bootstrap.php';
 
-use Cartoleirao\Models\Liga;
-use Cartoleirao\Models\Pontuacao;
-use Cartoleirao\Models\Rodada;
-use Cartoleirao\Models\RodadaBonus;
-use Cartoleirao\Models\TimeLigaOficial;
+use Cartoleirao\Models\BonusRound;
+use Cartoleirao\Models\League;
+use Cartoleirao\Models\OfficialLeagueTeam;
+use Cartoleirao\Models\Round;
+use Cartoleirao\Models\Score;
 
 /**
- * Monta o texto de compartilhamento pro WhatsApp: nome do time no Cartola
- * (fonte da verdade é a liga oficial) + pontuação.
+ * Builds the WhatsApp share text: Cartola team name (source of truth is the
+ * official league) + score.
  */
-function montarTextoCompartilhar(string $titulo, string $ligaNome, array $ranking, string $campoPontos): string
+function buildRankingShareText(string $title, string $leagueName, array $ranking, string $pointsField): string
 {
-    $linhas = ["🏆 *{$titulo}*", $ligaNome, ''];
+    $lines = ["🏆 *{$title}*", $leagueName, ''];
 
     foreach ($ranking as $i => $r) {
-        $posicao = $i + 1;
-        $prefixo = match ($posicao) {
+        $position = $i + 1;
+        $prefix = match ($position) {
             1 => '🥇',
             2 => '🥈',
             3 => '🥉',
-            default => "{$posicao}º",
+            default => "{$position}º",
         };
-        $nomeTime = $r['nome_cartola'] ?: ('Time ' . $r['cartola_time_id']);
-        $pontos = number_format((float) ($r[$campoPontos] ?? 0), 2, ',', '.');
-        $linhas[] = "{$prefixo} {$nomeTime} — {$pontos} pts";
+        $teamName = $r['team_name'] ?: ('Time ' . $r['cartola_team_id']);
+        $points = number_format((float) ($r[$pointsField] ?? 0), 2, ',', '.');
+        $lines[] = "{$prefix} {$teamName} — {$points} pts";
     }
 
-    $linhas[] = '';
-    $linhas[] = '⚽ Cartoleirão';
+    $lines[] = '';
+    $lines[] = '⚽ Cartoleirão';
 
-    return implode("\n", $linhas);
+    return implode("\n", $lines);
 }
 
-/** Compartilhamento no formato "tabela de resultados" (P/V/E/D/PC), pra ligas de pontos corridos. */
-function montarTextoCompartilharTabela(string $ligaNome, array $tabela): string
+/** Share text in the "results table" format (P/V/E/D/PC), for round-robin leagues. */
+function buildStandingsShareText(string $leagueName, array $standings): string
 {
-    $linhas = ["🏆 *Tabela de Resultados*", $ligaNome, ''];
+    $lines = ["🏆 *Tabela de Resultados*", $leagueName, ''];
 
-    foreach ($tabela as $t) {
-        $posicao = (int) ($t['pc_posicao'] ?? 0);
-        $prefixo = match ($posicao) {
+    foreach ($standings as $t) {
+        $position = (int) ($t['standing_position'] ?? 0);
+        $prefix = match ($position) {
             1 => '🥇',
             2 => '🥈',
             3 => '🥉',
-            default => $posicao > 0 ? "{$posicao}º" : '—',
+            default => $position > 0 ? "{$position}º" : '—',
         };
-        $nomeTime = $t['nome_cartola'] ?: ('Time ' . $t['cartola_time_id']);
-        $pc = number_format((float) ($t['pc_pontos_cartola'] ?? 0), 2, ',', '.');
-        $linhas[] = "{$prefixo} {$nomeTime} — {$t['pc_pontos']} pts (V{$t['pc_vitorias']} E{$t['pc_empates']} D{$t['pc_derrotas']}) — {$pc} PC";
+        $teamName = $t['team_name'] ?: ('Time ' . $t['cartola_team_id']);
+        $cartolaPoints = number_format((float) ($t['standing_cartola_points'] ?? 0), 2, ',', '.');
+        $lines[] = "{$prefix} {$teamName} — {$t['standing_points']} pts (V{$t['standing_wins']} E{$t['standing_draws']} D{$t['standing_losses']}) — {$cartolaPoints} PC";
     }
 
-    $linhas[] = '';
-    $linhas[] = '⚽ Cartoleirão';
+    $lines[] = '';
+    $lines[] = '⚽ Cartoleirão';
 
-    return implode("\n", $linhas);
+    return implode("\n", $lines);
 }
 
-$ligas = Liga::todas();
-$ligaId = isset($_GET['liga_id']) ? (int) $_GET['liga_id'] : ($ligas[0]['id'] ?? 0);
-$modo = ($_GET['modo'] ?? 'geral') === 'rodada' ? 'rodada' : 'geral';
+$leagues = League::all();
+$leagueId = isset($_GET['liga_id']) ? (int) $_GET['liga_id'] : ($leagues[0]['id'] ?? 0);
+$mode = ($_GET['modo'] ?? 'geral') === 'rodada' ? 'rodada' : 'geral';
 
-$ligaAtual = null;
-foreach ($ligas as $liga) {
-    if ((int) $liga['id'] === $ligaId) {
-        $ligaAtual = $liga;
+$currentLeague = null;
+foreach ($leagues as $league) {
+    if ((int) $league['id'] === $leagueId) {
+        $currentLeague = $league;
         break;
     }
 }
 
-$ehPontosCorridos = $ligaAtual && $ligaAtual['tipo'] === 'pontos_corridos';
+$isRoundRobin = $currentLeague && $currentLeague['type'] === 'round_robin';
 
-$tituloPagina = 'Classificação';
+$pageTitle = 'Classificação';
 require __DIR__ . '/includes/header.php';
 
 // ==========================================================================
-// LIGA DE PONTOS CORRIDOS: layout "Tabela de Resultados" (igual ao Cartola)
+// ROUND-ROBIN LEAGUE: "Tabela de Resultados" layout (same as Cartola)
 // ==========================================================================
-if ($ehPontosCorridos):
-    $tabela = TimeLigaOficial::porLigaOrdenadoPontosCorridos($ligaId);
-    $textoCompartilharTabela = !empty($tabela) ? montarTextoCompartilharTabela($ligaAtual['nome'], $tabela) : null;
+if ($isRoundRobin):
+    $standings = OfficialLeagueTeam::byLeagueOrderedByStanding($leagueId);
+    $standingsShareText = !empty($standings) ? buildStandingsShareText($currentLeague['name'], $standings) : null;
     ?>
 
     <div class="container py-5">
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
             <h1 class="tabela-pc-titulo mb-0">Tabela de Resultados</h1>
-            <?php if ($textoCompartilharTabela): ?>
+            <?php if ($standingsShareText): ?>
                 <button type="button" class="btn btn-whatsapp"
                         data-compartilhar-imagem="#captura-tabela-pc"
-                        data-titulo="Tabela de Resultados — <?= e($ligaAtual['nome']) ?>"
-                        data-texto="<?= e($textoCompartilharTabela) ?>"
-                        data-arquivo="tabela-resultados-<?= (int) $ligaAtual['id'] ?>">
+                        data-titulo="Tabela de Resultados — <?= e($currentLeague['name']) ?>"
+                        data-texto="<?= e($standingsShareText) ?>"
+                        data-arquivo="tabela-resultados-<?= (int) $currentLeague['id'] ?>">
                     <i class="fa-brands fa-whatsapp"></i> Compartilhar tabela
                 </button>
             <?php endif; ?>
@@ -103,14 +103,14 @@ if ($ehPontosCorridos):
         <div class="mb-3">
             <form method="get">
                 <select name="liga_id" class="form-select w-auto" onchange="this.form.submit()">
-                    <?php foreach ($ligas as $l): ?>
-                        <option value="<?= (int) $l['id'] ?>" <?= $ligaId === (int) $l['id'] ? 'selected' : '' ?>><?= e($l['nome']) ?></option>
+                    <?php foreach ($leagues as $l): ?>
+                        <option value="<?= (int) $l['id'] ?>" <?= $leagueId === (int) $l['id'] ? 'selected' : '' ?>><?= e($l['name']) ?></option>
                     <?php endforeach; ?>
                 </select>
             </form>
         </div>
 
-        <?php if (empty($tabela) || $tabela[0]['pc_posicao'] === null): ?>
+        <?php if (empty($standings) || $standings[0]['standing_position'] === null): ?>
             <p class="text-center text-muted">
                 Ainda não há tabela importada pra essa liga. O organizador precisa
                 importar o JSON da liga oficial em <code>admin/liga-oficial.php</code> primeiro.
@@ -121,7 +121,7 @@ if ($ehPontosCorridos):
                     <span class="captura-card-trofeu">🏆</span>
                     <div>
                         <div class="captura-card-titulo">Tabela de Resultados</div>
-                        <div class="captura-card-liga"><?= e($ligaAtual['nome']) ?></div>
+                        <div class="captura-card-liga"><?= e($currentLeague['name']) ?></div>
                     </div>
                 </div>
 
@@ -135,38 +135,38 @@ if ($ehPontosCorridos):
                     <div class="tabela-pc-col-stat">PC</div>
                 </div>
 
-                <?php foreach ($tabela as $t): ?>
-                    <?php if ($t['pc_posicao'] === null) continue; ?>
-                    <?php $variacao = (int) $t['pc_variacao']; ?>
-                    <?php $classePodio = ['ouro', 'prata', 'bronze'][((int) $t['pc_posicao']) - 1] ?? ''; ?>
-                    <div class="tabela-pc-row <?= $classePodio ? 'tabela-pc-row-' . $classePodio : '' ?>">
+                <?php foreach ($standings as $t): ?>
+                    <?php if ($t['standing_position'] === null) continue; ?>
+                    <?php $change = (int) $t['standing_change']; ?>
+                    <?php $podiumClass = ['ouro', 'prata', 'bronze'][((int) $t['standing_position']) - 1] ?? ''; ?>
+                    <div class="tabela-pc-row <?= $podiumClass ? 'tabela-pc-row-' . $podiumClass : '' ?>">
                         <div class="tabela-pc-variacao">
-                            <?php if ($variacao > 0): ?>
-                                <i class="fa-solid fa-caret-up variacao-up"></i><span class="variacao-up small"><?= $variacao ?></span>
-                            <?php elseif ($variacao < 0): ?>
-                                <i class="fa-solid fa-caret-down variacao-down"></i><span class="variacao-down small"><?= abs($variacao) ?></span>
+                            <?php if ($change > 0): ?>
+                                <i class="fa-solid fa-caret-up variacao-up"></i><span class="variacao-up small"><?= $change ?></span>
+                            <?php elseif ($change < 0): ?>
+                                <i class="fa-solid fa-caret-down variacao-down"></i><span class="variacao-down small"><?= abs($change) ?></span>
                             <?php else: ?>
                                 <span class="tabela-pc-sem-variacao">▪</span>
                             <?php endif; ?>
                         </div>
                         <div class="tabela-pc-posicao">
-                            <span class="tabela-pc-posicao-badge <?= $classePodio ? 'is-' . $classePodio : '' ?>"><?= (int) $t['pc_posicao'] ?>º</span>
+                            <span class="tabela-pc-posicao-badge <?= $podiumClass ? 'is-' . $podiumClass : '' ?>"><?= (int) $t['standing_position'] ?>º</span>
                         </div>
                         <div class="tabela-pc-col-time d-flex align-items-center">
-                            <?php if (!empty($t['escudo_url'])): ?>
-                                <img src="<?= e($t['escudo_url']) ?>" class="tabela-pc-escudo" alt="">
+                            <?php if (!empty($t['crest_url'])): ?>
+                                <img src="<?= e($t['crest_url']) ?>" class="tabela-pc-escudo" alt="">
                             <?php endif; ?>
                             <div>
                                 <div class="tabela-pc-nome-time">
-                                    <?= e($t['nome_cartola'] ?: ('Time ' . $t['cartola_time_id'])) ?>
-                                    <?php if (!empty($t['assinante'])): ?>
+                                    <?= e($t['team_name'] ?: ('Time ' . $t['cartola_team_id'])) ?>
+                                    <?php if (!empty($t['is_subscriber'])): ?>
                                         <span class="pc-badge-pro">PRO</span>
                                     <?php endif; ?>
                                 </div>
                                 <div class="tabela-pc-dono">
-                                    <?= e($t['nome_dono'] ?? '') ?>
-                                    <?php if (!empty($t['participante_id'])): ?>
-                                        <?php if ($t['participante_pago']): ?>
+                                    <?= e($t['owner_name'] ?? '') ?>
+                                    <?php if (!empty($t['registrant_id'])): ?>
+                                        <?php if ($t['registrant_paid']): ?>
                                             <span class="badge badge-pago">pago</span>
                                         <?php else: ?>
                                             <span class="badge badge-pendente">pendente</span>
@@ -175,11 +175,11 @@ if ($ehPontosCorridos):
                                 </div>
                             </div>
                         </div>
-                        <div class="tabela-pc-col-stat"><?= (int) $t['pc_pontos'] ?></div>
-                        <div class="tabela-pc-col-stat"><?= (int) $t['pc_vitorias'] ?></div>
-                        <div class="tabela-pc-col-stat"><?= (int) $t['pc_empates'] ?></div>
-                        <div class="tabela-pc-col-stat"><?= (int) $t['pc_derrotas'] ?></div>
-                        <div class="tabela-pc-col-stat"><?= number_format((float) $t['pc_pontos_cartola'], 2, ',', '.') ?></div>
+                        <div class="tabela-pc-col-stat"><?= (int) $t['standing_points'] ?></div>
+                        <div class="tabela-pc-col-stat"><?= (int) $t['standing_wins'] ?></div>
+                        <div class="tabela-pc-col-stat"><?= (int) $t['standing_draws'] ?></div>
+                        <div class="tabela-pc-col-stat"><?= (int) $t['standing_losses'] ?></div>
+                        <div class="tabela-pc-col-stat"><?= number_format((float) $t['standing_cartola_points'], 2, ',', '.') ?></div>
                     </div>
                 <?php endforeach; ?>
 
@@ -194,84 +194,84 @@ if ($ehPontosCorridos):
 
 <?php
 // ==========================================================================
-// LIGA CLÁSSICA: layout genérico (geral / por rodada)
+// CLASSIC LEAGUE: generic layout (overall / per round)
 // ==========================================================================
 else:
-    $rodadas = Rodada::todasOrdenadas();
-    $numerosComDados = $ligaId ? Pontuacao::numerosRodadasComDados($ligaId) : [];
+    $rounds = Round::allOrdered();
+    $numbersWithData = $leagueId ? Score::roundNumbersWithData($leagueId) : [];
 
-    $numeroRodadaSelecionada = isset($_GET['rodada']) ? (int) $_GET['rodada'] : null;
-    if ($numeroRodadaSelecionada) {
-        $rodadaSelecionada = Rodada::porNumero($numeroRodadaSelecionada);
-    } elseif (!empty($numerosComDados)) {
-        // padrão: última rodada que TEM pontuação pra essa liga (evita cair
-        // numa rodada futura/atual que já existe na tabela `rodadas` — por
-        // causa dos jogos — mas ainda não tem pontuação nenhuma)
-        $rodadaSelecionada = Rodada::porNumero($numerosComDados[0]);
+    $selectedRoundNumber = isset($_GET['rodada']) ? (int) $_GET['rodada'] : null;
+    if ($selectedRoundNumber) {
+        $selectedRound = Round::findByNumber($selectedRoundNumber);
+    } elseif (!empty($numbersWithData)) {
+        // default: the latest round that HAS scores for this league (avoids
+        // landing on a future/current round that already exists in the
+        // `rounds` table — because of the games — but has no score yet)
+        $selectedRound = Round::findByNumber($numbersWithData[0]);
     } else {
-        $rodadaSelecionada = Rodada::maisRecente();
+        $selectedRound = Round::mostRecent();
     }
 
     $ranking = [];
-    $mapaPosicoesAnterior = [];
+    $previousPositionMap = [];
 
-    if ($ligaId) {
-        if ($modo === 'rodada' && $rodadaSelecionada) {
-            $ranking = Pontuacao::rankingRodada($ligaId, (int) $rodadaSelecionada['id']);
+    if ($leagueId) {
+        if ($mode === 'rodada' && $selectedRound) {
+            $ranking = Score::rankingForRound($leagueId, (int) $selectedRound['id']);
 
-            $numeroAnterior = null;
-            foreach ($numerosComDados as $n) {
-                if ($n < (int) $rodadaSelecionada['numero']) {
-                    $numeroAnterior = $n;
+            $previousNumber = null;
+            foreach ($numbersWithData as $n) {
+                if ($n < (int) $selectedRound['number']) {
+                    $previousNumber = $n;
                     break;
                 }
             }
-            if ($numeroAnterior) {
-                $rodadaAnterior = Rodada::porNumero($numeroAnterior);
-                if ($rodadaAnterior) {
-                    $mapaPosicoesAnterior = Pontuacao::mapaDePosicoes(Pontuacao::rankingRodada($ligaId, (int) $rodadaAnterior['id']));
+            if ($previousNumber) {
+                $previousRound = Round::findByNumber($previousNumber);
+                if ($previousRound) {
+                    $previousPositionMap = Score::positionMap(Score::rankingForRound($leagueId, (int) $previousRound['id']));
                 }
             }
         } else {
-            $ranking = Pontuacao::rankingGeral($ligaId);
+            $ranking = Score::overallRanking($leagueId);
 
-            if (count($numerosComDados) >= 2) {
-                $penultima = $numerosComDados[1];
-                $mapaPosicoesAnterior = Pontuacao::mapaDePosicoes(Pontuacao::rankingGeralAteRodada($ligaId, $penultima));
+            if (count($numbersWithData) >= 2) {
+                $secondToLast = $numbersWithData[1];
+                $previousPositionMap = Score::positionMap(Score::overallRankingUpToRound($leagueId, $secondToLast));
             }
         }
     }
 
-    // Rodada bônus: se a rodada selecionada (no modo "por rodada") estiver
-    // marcada como bônus pra essa liga, o 1º colocado do ranking daquela
-    // rodada é destacado em dourado como "campeão da rodada bônus".
-    $rodadaBonusAtual = null;
-    if ($ligaId && $modo === 'rodada' && $rodadaSelecionada) {
-        $rodadaBonusAtual = RodadaBonus::ehBonus($ligaId, (int) $rodadaSelecionada['numero']);
+    // Bonus round: if the selected round (in "per round" mode) is marked as
+    // a bonus round for this league, the ranking's 1st place is highlighted
+    // in gold as "bonus round champion".
+    $currentBonusRound = null;
+    if ($leagueId && $mode === 'rodada' && $selectedRound) {
+        $currentBonusRound = BonusRound::forLeagueAndRound($leagueId, (int) $selectedRound['number']);
     }
 
-    $textoCompartilharRodada = null;
-    if ($ligaAtual && $rodadaSelecionada) {
-        $rankingParaShareRodada = ($modo === 'rodada') ? $ranking : Pontuacao::rankingRodada($ligaId, (int) $rodadaSelecionada['id']);
-        if (!empty($rankingParaShareRodada)) {
-            $textoCompartilharRodada = montarTextoCompartilhar(
-                "Classificação da Rodada {$rodadaSelecionada['numero']}",
-                $ligaAtual['nome'],
-                $rankingParaShareRodada,
-                'pontos'
+    $roundShareText = null;
+    if ($currentLeague && $selectedRound) {
+        $roundShareRanking = ($mode === 'rodada') ? $ranking : Score::rankingForRound($leagueId, (int) $selectedRound['id']);
+        if (!empty($roundShareRanking)) {
+            $roundShareText = buildRankingShareText(
+                "Classificação da Rodada {$selectedRound['number']}",
+                $currentLeague['name'],
+                $roundShareRanking,
+                'points'
             );
         }
     }
 
-    $textoCompartilharGeral = null;
-    if ($ligaAtual) {
-        $rankingParaShareGeral = ($modo === 'geral') ? $ranking : Pontuacao::rankingGeral($ligaId);
-        if (!empty($rankingParaShareGeral)) {
-            $textoCompartilharGeral = montarTextoCompartilhar(
+    $overallShareText = null;
+    if ($currentLeague) {
+        $overallShareRanking = ($mode === 'geral') ? $ranking : Score::overallRanking($leagueId);
+        if (!empty($overallShareRanking)) {
+            $overallShareText = buildRankingShareText(
                 'Classificação Geral',
-                $ligaAtual['nome'],
-                $rankingParaShareGeral,
-                'pontos_total'
+                $currentLeague['name'],
+                $overallShareRanking,
+                'total_points'
             );
         }
     }
@@ -283,25 +283,25 @@ else:
         <form method="get" class="row g-2 justify-content-center mb-3">
             <div class="col-auto">
                 <select name="liga_id" class="form-select" onchange="this.form.submit()">
-                    <?php foreach ($ligas as $liga): ?>
-                        <option value="<?= (int) $liga['id'] ?>" <?= $ligaId === (int) $liga['id'] ? 'selected' : '' ?>>
-                            <?= e($liga['nome']) ?>
+                    <?php foreach ($leagues as $league): ?>
+                        <option value="<?= (int) $league['id'] ?>" <?= $leagueId === (int) $league['id'] ? 'selected' : '' ?>>
+                            <?= e($league['name']) ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
             </div>
             <div class="col-auto">
                 <select name="modo" class="form-select" onchange="this.form.submit()">
-                    <option value="geral" <?= $modo === 'geral' ? 'selected' : '' ?>>Geral (acumulado)</option>
-                    <option value="rodada" <?= $modo === 'rodada' ? 'selected' : '' ?>>Por rodada</option>
+                    <option value="geral" <?= $mode === 'geral' ? 'selected' : '' ?>>Geral (acumulado)</option>
+                    <option value="rodada" <?= $mode === 'rodada' ? 'selected' : '' ?>>Por rodada</option>
                 </select>
             </div>
-            <?php if ($modo === 'rodada' && !empty($rodadas)): ?>
+            <?php if ($mode === 'rodada' && !empty($rounds)): ?>
                 <div class="col-auto">
                     <select name="rodada" class="form-select" onchange="this.form.submit()">
-                        <?php foreach ($rodadas as $r): ?>
-                            <option value="<?= (int) $r['numero'] ?>" <?= $rodadaSelecionada && (int) $rodadaSelecionada['numero'] === (int) $r['numero'] ? 'selected' : '' ?>>
-                                Rodada <?= (int) $r['numero'] ?>
+                        <?php foreach ($rounds as $r): ?>
+                            <option value="<?= (int) $r['number'] ?>" <?= $selectedRound && (int) $selectedRound['number'] === (int) $r['number'] ? 'selected' : '' ?>>
+                                Rodada <?= (int) $r['number'] ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -310,38 +310,38 @@ else:
         </form>
 
         <?php
-        // O botão de compartilhar sempre captura a tabela que está de fato
-        // visível na tela (modo "geral" ou "rodada"), então usa o texto
-        // correspondente ao modo atual.
-        $textoCompartilharAtual = $modo === 'rodada' ? $textoCompartilharRodada : $textoCompartilharGeral;
-        $tituloCompartilharAtual = $modo === 'rodada' && $rodadaSelecionada
-            ? "Classificação da Rodada {$rodadaSelecionada['numero']} — {$ligaAtual['nome']}"
-            : "Classificação Geral — " . ($ligaAtual['nome'] ?? '');
-        $labelCompartilharAtual = $modo === 'rodada' && $rodadaSelecionada
-            ? 'Compartilhar rodada ' . (int) $rodadaSelecionada['numero']
+        // The share button always captures whatever table is actually
+        // visible on screen ("geral" or "rodada" mode), so it uses the text
+        // matching the current mode.
+        $currentShareText = $mode === 'rodada' ? $roundShareText : $overallShareText;
+        $currentShareTitle = $mode === 'rodada' && $selectedRound
+            ? "Classificação da Rodada {$selectedRound['number']} — {$currentLeague['name']}"
+            : "Classificação Geral — " . ($currentLeague['name'] ?? '');
+        $currentShareLabel = $mode === 'rodada' && $selectedRound
+            ? 'Compartilhar rodada ' . (int) $selectedRound['number']
             : 'Compartilhar geral';
         ?>
         <div class="d-flex justify-content-center gap-2 flex-wrap mb-4">
-            <?php if ($textoCompartilharAtual): ?>
+            <?php if ($currentShareText): ?>
                 <button type="button" class="btn btn-whatsapp btn-sm"
                         data-compartilhar-imagem="#captura-classificacao"
-                        data-titulo="<?= e($tituloCompartilharAtual) ?>"
-                        data-texto="<?= e($textoCompartilharAtual) ?>"
-                        data-arquivo="classificacao-<?= (int) $ligaId ?>-<?= $modo ?>">
-                    <i class="fa-brands fa-whatsapp"></i> <?= e($labelCompartilharAtual) ?>
+                        data-titulo="<?= e($currentShareTitle) ?>"
+                        data-texto="<?= e($currentShareText) ?>"
+                        data-arquivo="classificacao-<?= (int) $leagueId ?>-<?= $mode ?>">
+                    <i class="fa-brands fa-whatsapp"></i> <?= e($currentShareLabel) ?>
                 </button>
             <?php endif; ?>
         </div>
 
-        <?php if ($rodadaBonusAtual): ?>
+        <?php if ($currentBonusRound): ?>
             <div class="faixa-rodada-bonus mb-4">
                 <span class="faixa-rodada-bonus-trofeu">🏆</span>
                 <div>
-                    <div class="faixa-rodada-bonus-titulo">Rodada <?= (int) $rodadaBonusAtual['rodada_numero'] ?> é Bônus!</div>
+                    <div class="faixa-rodada-bonus-titulo">Rodada <?= (int) $currentBonusRound['round_number'] ?> é Bônus!</div>
                     <div class="faixa-rodada-bonus-sub">
-                        <?php if (!empty($rodadaBonusAtual['valor_premio'])): ?>
+                        <?php if (!empty($currentBonusRound['prize_amount'])): ?>
                             O 1º colocado dessa rodada leva mais
-                            <strong>R$ <?= number_format((float) $rodadaBonusAtual['valor_premio'], 2, ',', '.') ?></strong>
+                            <strong>R$ <?= number_format((float) $currentBonusRound['prize_amount'], 2, ',', '.') ?></strong>
                         <?php else: ?>
                             O 1º colocado dessa rodada leva um prêmio extra
                         <?php endif; ?>
@@ -350,14 +350,14 @@ else:
             </div>
         <?php endif; ?>
 
-        <?php if (empty($ranking) && Pontuacao::numerosRodadasComDados($ligaId) === []): ?>
+        <?php if (empty($ranking) && Score::roundNumbersWithData($leagueId) === []): ?>
             <p class="text-center text-muted">
                 Ainda não há times/pontuação cadastrados pra essa liga.
-                <?php if (!empty($ligaAtual['cartola_liga_slug'])): ?>
+                <?php if (!empty($currentLeague['cartola_league_slug'])): ?>
                     O organizador precisa importar a lista de times em <code>admin/liga-oficial.php</code> primeiro.
                 <?php endif; ?>
             </p>
-        <?php elseif ($modo === 'rodada' && empty($rodadas)): ?>
+        <?php elseif ($mode === 'rodada' && empty($rounds)): ?>
             <div class="alert alert-info text-center">Ainda não há rodadas sincronizadas.</div>
         <?php elseif (empty($ranking)): ?>
             <p class="text-center text-muted">Ainda não há pontuações registradas para essa rodada.</p>
@@ -367,9 +367,9 @@ else:
                     <span class="captura-card-trofeu">🏆</span>
                     <div>
                         <div class="captura-card-titulo">
-                            <?= $modo === 'rodada' && $rodadaSelecionada ? 'Classificação da Rodada ' . (int) $rodadaSelecionada['numero'] : 'Classificação Geral' ?>
+                            <?= $mode === 'rodada' && $selectedRound ? 'Classificação da Rodada ' . (int) $selectedRound['number'] : 'Classificação Geral' ?>
                         </div>
-                        <div class="captura-card-liga"><?= e($ligaAtual['nome'] ?? '') ?></div>
+                        <div class="captura-card-liga"><?= e($currentLeague['name'] ?? '') ?></div>
                     </div>
                 </div>
 
@@ -378,49 +378,49 @@ else:
                     <div class="ranking-flex-variacao">Var.</div>
                     <div class="ranking-flex-pos">#</div>
                     <div class="ranking-flex-time">Time no Cartola</div>
-                    <div class="ranking-flex-pontos"><?= $modo === 'rodada' ? 'Pontos na rodada' : 'Pontos (total)' ?></div>
-                    <?php if ($modo === 'geral'): ?>
+                    <div class="ranking-flex-pontos"><?= $mode === 'rodada' ? 'Pontos na rodada' : 'Pontos (total)' ?></div>
+                    <?php if ($mode === 'geral'): ?>
                         <div class="ranking-flex-rodadas">Rodadas</div>
                     <?php endif; ?>
                 </div>
 
                 <?php foreach ($ranking as $i => $r): ?>
                     <?php
-                    $posicaoAtual = $i + 1;
-                    $variacao = Pontuacao::variacaoPosicao($mapaPosicoesAnterior, (int) $r['time_liga_oficial_id'], $posicaoAtual);
-                    $ehCampeaoRodadaBonus = $rodadaBonusAtual && $posicaoAtual === 1;
-                    $classeTop = $posicaoAtual <= 8 ? 'top-' . $posicaoAtual : '';
+                    $currentPosition = $i + 1;
+                    $change = Score::positionChange($previousPositionMap, (int) $r['official_league_team_id'], $currentPosition);
+                    $isBonusRoundChampion = $currentBonusRound && $currentPosition === 1;
+                    $topClass = $currentPosition <= 8 ? 'top-' . $currentPosition : '';
                     ?>
-                    <div class="ranking-flex-row <?= $classeTop ?> <?= $ehCampeaoRodadaBonus ? 'linha-campeao-bonus' : '' ?>">
+                    <div class="ranking-flex-row <?= $topClass ?> <?= $isBonusRoundChampion ? 'linha-campeao-bonus' : '' ?>">
                         <div class="ranking-flex-variacao">
-                            <?php if ($variacao === null): ?>
+                            <?php if ($change === null): ?>
                                 <span class="variacao-same" title="Sem dado anterior pra comparar">novo</span>
-                            <?php elseif ($variacao > 0): ?>
-                                <i class="fa-solid fa-caret-up variacao-up"></i><span class="variacao-up small"><?= $variacao ?></span>
-                            <?php elseif ($variacao < 0): ?>
-                                <i class="fa-solid fa-caret-down variacao-down"></i><span class="variacao-down small"><?= abs($variacao) ?></span>
+                            <?php elseif ($change > 0): ?>
+                                <i class="fa-solid fa-caret-up variacao-up"></i><span class="variacao-up small"><?= $change ?></span>
+                            <?php elseif ($change < 0): ?>
+                                <i class="fa-solid fa-caret-down variacao-down"></i><span class="variacao-down small"><?= abs($change) ?></span>
                             <?php else: ?>
                                 <span class="tabela-pc-sem-variacao">▪</span>
                             <?php endif; ?>
                         </div>
                         <div class="ranking-flex-pos">
-                            <span class="ranking-posicao-badge <?= $classeTop ? 'is-' . $classeTop : '' ?>"><?= $posicaoAtual ?></span>
+                            <span class="ranking-posicao-badge <?= $topClass ? 'is-' . $topClass : '' ?>"><?= $currentPosition ?></span>
                         </div>
                         <div class="ranking-flex-time d-flex align-items-center">
-                            <?php if (!empty($r['escudo_url'])): ?>
-                                <img src="<?= e($r['escudo_url']) ?>" class="ranking-flex-escudo" alt="">
+                            <?php if (!empty($r['crest_url'])): ?>
+                                <img src="<?= e($r['crest_url']) ?>" class="ranking-flex-escudo" alt="">
                             <?php endif; ?>
                             <div>
                                 <div class="ranking-flex-nome-time">
-                                    <?= e($r['nome_cartola'] ?: ('Time ' . $r['cartola_time_id'])) ?>
-                                    <?php if ($ehCampeaoRodadaBonus): ?>
+                                    <?= e($r['team_name'] ?: ('Time ' . $r['cartola_team_id'])) ?>
+                                    <?php if ($isBonusRoundChampion): ?>
                                         <span class="selo-campeao-bonus"><i class="fa-solid fa-trophy"></i> Campeão da Rodada Bônus</span>
                                     <?php endif; ?>
                                 </div>
                                 <div class="ranking-flex-sub">
-                                    <?php if (!empty($r['participante_nome'])): ?>
-                                        <?= e($r['participante_nome']) ?>
-                                        <?php if ($r['pago']): ?>
+                                    <?php if (!empty($r['registrant_name'])): ?>
+                                        <?= e($r['registrant_name']) ?>
+                                        <?php if ($r['paid']): ?>
                                             <span class="badge badge-pago">pago</span>
                                         <?php else: ?>
                                             <span class="badge badge-pendente">pendente</span>
@@ -432,10 +432,10 @@ else:
                             </div>
                         </div>
                         <div class="ranking-flex-pontos">
-                            <?= number_format((float) ($r['pontos'] ?? $r['pontos_total']), 2, ',', '.') ?>
+                            <?= number_format((float) ($r['points'] ?? $r['total_points']), 2, ',', '.') ?>
                         </div>
-                        <?php if ($modo === 'geral'): ?>
-                            <div class="ranking-flex-rodadas"><?= (int) $r['rodadas_pontuadas'] ?></div>
+                        <?php if ($mode === 'geral'): ?>
+                            <div class="ranking-flex-rodadas"><?= (int) $r['scored_rounds'] ?></div>
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>

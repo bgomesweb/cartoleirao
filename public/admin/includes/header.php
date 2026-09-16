@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 use Cartoleirao\Auth\AdminAuth;
 use Cartoleirao\Helpers\Csrf;
-use Cartoleirao\Models\MercadoStatus;
+use Cartoleirao\Models\MarketStatus;
 
-AdminAuth::exigirLogin();
+AdminAuth::requireLogin();
 
-$paginaAtual = basename($_SERVER['SCRIPT_NAME']);
-$mercado = MercadoStatus::atual();
+$currentPage = basename($_SERVER['SCRIPT_NAME']);
+$market = MarketStatus::current();
 
 ?><!doctype html>
 <html lang="pt-br">
@@ -29,32 +29,32 @@ $mercado = MercadoStatus::atual();
         <a class="navbar-brand d-flex align-items-center" href="index.php">
             <img src="../assets/img/logo.png" alt="Cartoleirão">
             Cartoleirão — Admin
-            <?php if ($mercado): ?>
-                <span class="badge-mercado badge-mercado-<?= e($mercado['classe']) ?>" title="Rodada <?= (int) ($mercado['rodada_atual'] ?? 0) ?>">
-                    <?= e($mercado['label']) ?>
+            <?php if ($market): ?>
+                <span class="badge-mercado badge-mercado-<?= e($market['class']) ?>" title="Rodada <?= (int) ($market['current_round'] ?? 0) ?>">
+                    <?= e($market['label']) ?>
                 </span>
             <?php endif; ?>
         </a>
         <div class="d-flex align-items-center gap-2 flex-wrap">
-            <a class="admin-nav-link <?= $paginaAtual === 'index.php' ? 'ativo' : '' ?>" href="index.php">Dashboard</a>
-            <a class="admin-nav-link <?= $paginaAtual === 'inscricoes.php' ? 'ativo' : '' ?>" href="inscricoes.php">Inscrições</a>
-            <a class="admin-nav-link <?= $paginaAtual === 'ligas.php' ? 'ativo' : '' ?>" href="ligas.php">Ligas</a>
-            <a class="admin-nav-link <?= $paginaAtual === 'liga-oficial.php' ? 'ativo' : '' ?>" href="liga-oficial.php">Liga Oficial</a>
-            <a class="admin-nav-link <?= $paginaAtual === 'rodadas-bonus.php' ? 'ativo' : '' ?>" href="rodadas-bonus.php"><i class="fa-solid fa-star"></i> Rodada Bônus</a>
-            <?php $paginasConfig = ['cartola-login.php', 'cartola-bookmarklet.php', 'configuracoes.php']; ?>
+            <a class="admin-nav-link <?= $currentPage === 'index.php' ? 'ativo' : '' ?>" href="index.php">Dashboard</a>
+            <a class="admin-nav-link <?= $currentPage === 'inscricoes.php' ? 'ativo' : '' ?>" href="inscricoes.php">Inscrições</a>
+            <a class="admin-nav-link <?= $currentPage === 'ligas.php' ? 'ativo' : '' ?>" href="ligas.php">Ligas</a>
+            <a class="admin-nav-link <?= $currentPage === 'liga-oficial.php' ? 'ativo' : '' ?>" href="liga-oficial.php">Liga Oficial</a>
+            <a class="admin-nav-link <?= $currentPage === 'rodadas-bonus.php' ? 'ativo' : '' ?>" href="rodadas-bonus.php"><i class="fa-solid fa-star"></i> Rodada Bônus</a>
+            <?php $configPages = ['cartola-login.php', 'cartola-bookmarklet.php', 'configuracoes.php']; ?>
             <div class="dropdown">
-                <a class="admin-nav-link dropdown-toggle <?= in_array($paginaAtual, $paginasConfig, true) ? 'ativo' : '' ?>"
+                <a class="admin-nav-link dropdown-toggle <?= in_array($currentPage, $configPages, true) ? 'ativo' : '' ?>"
                    href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                     Configurações
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item <?= $paginaAtual === 'cartola-login.php' ? 'active' : '' ?>" href="cartola-login.php"><i class="fa-solid fa-right-to-bracket"></i> Login Globo</a></li>
-                    <li><a class="dropdown-item <?= $paginaAtual === 'cartola-bookmarklet.php' ? 'active' : '' ?>" href="cartola-bookmarklet.php"><i class="fa-solid fa-bookmark"></i> Bookmarklet</a></li>
+                    <li><a class="dropdown-item <?= $currentPage === 'cartola-login.php' ? 'active' : '' ?>" href="cartola-login.php"><i class="fa-solid fa-right-to-bracket"></i> Login Globo</a></li>
+                    <li><a class="dropdown-item <?= $currentPage === 'cartola-bookmarklet.php' ? 'active' : '' ?>" href="cartola-bookmarklet.php"><i class="fa-solid fa-bookmark"></i> Bookmarklet</a></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item <?= $paginaAtual === 'configuracoes.php' ? 'active' : '' ?>" href="configuracoes.php"><i class="fa-solid fa-user-gear"></i> Minha conta / senha</a></li>
+                    <li><a class="dropdown-item <?= $currentPage === 'configuracoes.php' ? 'active' : '' ?>" href="configuracoes.php"><i class="fa-solid fa-user-gear"></i> Minha conta / senha</a></li>
                 </ul>
             </div>
-            <span class="text-white-50 small ms-2">Olá, <?= e(AdminAuth::usuarioAtual() ?? '') ?></span>
+            <span class="text-white-50 small ms-2">Olá, <?= e(AdminAuth::currentUsername() ?? '') ?></span>
             <a class="btn btn-sm btn-outline-light" href="logout.php">Sair</a>
         </div>
     </div>

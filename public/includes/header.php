@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-use Cartoleirao\Models\MercadoStatus;
-use Cartoleirao\Models\RodadaBonus;
+use Cartoleirao\Models\BonusRound;
+use Cartoleirao\Models\MarketStatus;
 
-$paginaAtual = basename($_SERVER['SCRIPT_NAME']);
-$mercado = MercadoStatus::atual();
-$rodadasBonusModal = RodadaBonus::paraRodadaAtual($mercado['rodada_atual'] ?? null);
+$currentPage = basename($_SERVER['SCRIPT_NAME']);
+$market = MarketStatus::current();
+$bonusRoundsModal = BonusRound::forCurrentRound($market['current_round'] ?? null);
 
 ?><!doctype html>
 <html lang="pt-br">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?= isset($tituloPagina) ? e($tituloPagina) . ' — ' : '' ?>Cartoleirão</title>
+    <title><?= isset($pageTitle) ? e($pageTitle) . ' — ' : '' ?>Cartoleirão</title>
     <link rel="icon" type="image/png" href="assets/img/favicon.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -26,9 +26,9 @@ $rodadasBonusModal = RodadaBonus::paraRodadaAtual($mercado['rodada_atual'] ?? nu
         <a class="navbar-brand d-flex align-items-center" href="index.php">
             <img src="assets/img/logo.png" alt="Cartoleirão">
             Cartoleirão
-            <?php if ($mercado): ?>
-                <span class="badge-mercado badge-mercado-<?= e($mercado['classe']) ?>" title="Rodada <?= (int) ($mercado['rodada_atual'] ?? 0) ?>">
-                    <?= e($mercado['label']) ?>
+            <?php if ($market): ?>
+                <span class="badge-mercado badge-mercado-<?= e($market['class']) ?>" title="Rodada <?= (int) ($market['current_round'] ?? 0) ?>">
+                    <?= e($market['label']) ?>
                 </span>
             <?php endif; ?>
         </a>
@@ -37,10 +37,10 @@ $rodadasBonusModal = RodadaBonus::paraRodadaAtual($mercado['rodada_atual'] ?? nu
         </button>
         <div class="collapse navbar-collapse" id="navMenu">
             <div class="navbar-nav ms-auto">
-                <a class="nav-link <?= $paginaAtual === 'index.php' ? 'active-link' : '' ?>" href="index.php">Início</a>
-                <a class="nav-link <?= $paginaAtual === 'jogos.php' ? 'active-link' : '' ?>" href="jogos.php">Jogos</a>
-                <a class="nav-link <?= $paginaAtual === 'classificacao.php' ? 'active-link' : '' ?>" href="classificacao.php">Classificação</a>
-                <a class="nav-link <?= $paginaAtual === 'inscricao.php' ? 'active-link' : '' ?>" href="inscricao.php">
+                <a class="nav-link <?= $currentPage === 'index.php' ? 'active-link' : '' ?>" href="index.php">Início</a>
+                <a class="nav-link <?= $currentPage === 'jogos.php' ? 'active-link' : '' ?>" href="jogos.php">Jogos</a>
+                <a class="nav-link <?= $currentPage === 'classificacao.php' ? 'active-link' : '' ?>" href="classificacao.php">Classificação</a>
+                <a class="nav-link <?= $currentPage === 'inscricao.php' ? 'active-link' : '' ?>" href="inscricao.php">
                     <span class="badge bg-warning text-dark">Inscreva-se</span>
                 </a>
             </div>
@@ -48,9 +48,9 @@ $rodadasBonusModal = RodadaBonus::paraRodadaAtual($mercado['rodada_atual'] ?? nu
     </div>
 </nav>
 
-<?php if (!empty($rodadasBonusModal)): ?>
+<?php if (!empty($bonusRoundsModal)): ?>
     <div class="modal fade" id="modalRodadaBonus" tabindex="-1" aria-hidden="true"
-         data-rodada-bonus="<?= (int) $rodadasBonusModal[0]['rodada_numero'] ?>">
+         data-rodada-bonus="<?= (int) $bonusRoundsModal[0]['round_number'] ?>">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content modal-bonus-content">
                 <button type="button" class="btn-close btn-close-white modal-bonus-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
@@ -58,19 +58,19 @@ $rodadasBonusModal = RodadaBonus::paraRodadaAtual($mercado['rodada_atual'] ?? nu
                 <div class="modal-body text-center py-5 px-4">
                     <div class="modal-bonus-trophy">🏆</div>
                     <span class="modal-bonus-tag">RODADA BÔNUS</span>
-                    <h2 class="modal-bonus-rodada">Rodada <?= (int) $rodadasBonusModal[0]['rodada_numero'] ?></h2>
+                    <h2 class="modal-bonus-rodada">Rodada <?= (int) $bonusRoundsModal[0]['round_number'] ?></h2>
                     <p class="modal-bonus-sub">
                         Quem fechar em <strong>1º lugar nessa rodada</strong> leva um extra na faixa,
                         além da briga na classificação geral!
                     </p>
 
                     <div class="modal-bonus-premios">
-                        <?php foreach ($rodadasBonusModal as $bonus): ?>
+                        <?php foreach ($bonusRoundsModal as $bonus): ?>
                             <div class="modal-bonus-premio-item">
-                                <span class="modal-bonus-liga"><?= e($bonus['liga_nome']) ?></span>
+                                <span class="modal-bonus-liga"><?= e($bonus['league_name']) ?></span>
                                 <span class="modal-bonus-valor">
-                                    <?php if (!empty($bonus['valor_premio'])): ?>
-                                        R$ <?= number_format((float) $bonus['valor_premio'], 2, ',', '.') ?>
+                                    <?php if (!empty($bonus['prize_amount'])): ?>
+                                        R$ <?= number_format((float) $bonus['prize_amount'], 2, ',', '.') ?>
                                     <?php else: ?>
                                         A definir
                                     <?php endif; ?>
@@ -86,5 +86,5 @@ $rodadasBonusModal = RodadaBonus::paraRodadaAtual($mercado['rodada_atual'] ?? nu
             </div>
         </div>
     </div>
-    <?php $scriptsExtras[] = 'assets/js/rodada-bonus.js'; ?>
+    <?php $extraScripts[] = 'assets/js/rodada-bonus.js'; ?>
 <?php endif; ?>

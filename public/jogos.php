@@ -4,120 +4,120 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/Config/bootstrap.php';
 
-use Cartoleirao\Models\Jogo;
-use Cartoleirao\Models\Rodada;
+use Cartoleirao\Models\Game;
+use Cartoleirao\Models\Round;
 
-$rodadas = Rodada::todasOrdenadas();
-$numeroSelecionado = isset($_GET['rodada']) ? (int) $_GET['rodada'] : null;
+$rounds = Round::allOrdered();
+$selectedNumber = isset($_GET['rodada']) ? (int) $_GET['rodada'] : null;
 
-$rodadaSelecionada = null;
-if ($numeroSelecionado) {
-    $rodadaSelecionada = Rodada::porNumero($numeroSelecionado);
+$selectedRound = null;
+if ($selectedNumber) {
+    $selectedRound = Round::findByNumber($selectedNumber);
 }
-if (!$rodadaSelecionada) {
-    $rodadaSelecionada = Rodada::maisRecente();
+if (!$selectedRound) {
+    $selectedRound = Round::mostRecent();
 }
 
-$jogos = $rodadaSelecionada ? Jogo::porRodada((int) $rodadaSelecionada['id']) : [];
+$games = $selectedRound ? Game::findByRound((int) $selectedRound['id']) : [];
 
 /**
- * Monta o texto de compartilhamento dos jogos da rodada pro WhatsApp.
+ * Builds the round's games share text for WhatsApp.
  */
-function montarTextoJogos(array $rodada, array $jogos): string
+function buildGamesShareText(array $round, array $games): string
 {
-    $linhas = ["⚽ *Jogos da Rodada {$rodada['numero']}* — Cartoleirão", ''];
+    $lines = ["⚽ *Jogos da Rodada {$round['number']}* — Cartoleirão", ''];
 
-    foreach ($jogos as $jogo) {
-        $casa = $jogo['casa_abreviacao'] ?: $jogo['casa_nome'];
-        $visitante = $jogo['visitante_abreviacao'] ?: $jogo['visitante_nome'];
+    foreach ($games as $game) {
+        $home = $game['home_abbreviation'] ?: $game['home_name'];
+        $away = $game['away_abbreviation'] ?: $game['away_name'];
 
-        if ($jogo['placar_casa'] !== null && $jogo['placar_visitante'] !== null) {
-            $confronto = "{$casa} {$jogo['placar_casa']} x {$jogo['placar_visitante']} {$visitante}";
+        if ($game['home_score'] !== null && $game['away_score'] !== null) {
+            $matchup = "{$home} {$game['home_score']} x {$game['away_score']} {$away}";
         } else {
-            $confronto = "{$casa} x {$visitante}";
+            $matchup = "{$home} x {$away}";
         }
 
-        if (!empty($jogo['partida_data'])) {
-            $confronto .= ' (' . (new DateTime($jogo['partida_data']))->format('d/m H:i') . ')';
+        if (!empty($game['played_at'])) {
+            $matchup .= ' (' . (new DateTime($game['played_at']))->format('d/m H:i') . ')';
         }
 
-        $linhas[] = $confronto;
+        $lines[] = $matchup;
     }
 
-    return implode("\n", $linhas);
+    return implode("\n", $lines);
 }
 
-$textoCompartilharJogos = ($rodadaSelecionada && !empty($jogos)) ? montarTextoJogos($rodadaSelecionada, $jogos) : null;
+$gamesShareText = ($selectedRound && !empty($games)) ? buildGamesShareText($selectedRound, $games) : null;
 
-$tituloPagina = 'Jogos';
+$pageTitle = 'Jogos';
 require __DIR__ . '/includes/header.php';
 ?>
 
 <div class="container py-5">
     <h2 class="page-title justify-content-center mb-4"><i class="fa-solid fa-futbol"></i> Jogos do Brasileirão</h2>
 
-    <?php if (empty($rodadas)): ?>
+    <?php if (empty($rounds)): ?>
         <div class="alert alert-info text-center">
             Ainda não sincronizamos nenhuma rodada com a API do Cartola. Isso acontece
             automaticamente a cada 10 minutos, ou pode ser forçado rodando
-            <code>cron/sync_jogos.php</code>.
+            <code>cron/sync_games.php</code>.
         </div>
     <?php else: ?>
         <form method="get" class="d-flex justify-content-center mb-4">
             <select name="rodada" class="form-select w-auto" onchange="this.form.submit()">
-                <?php foreach ($rodadas as $r): ?>
-                    <option value="<?= (int) $r['numero'] ?>" <?= (int) $rodadaSelecionada['numero'] === (int) $r['numero'] ? 'selected' : '' ?>>
-                        Rodada <?= (int) $r['numero'] ?>
+                <?php foreach ($rounds as $r): ?>
+                    <option value="<?= (int) $r['number'] ?>" <?= (int) $selectedRound['number'] === (int) $r['number'] ? 'selected' : '' ?>>
+                        Rodada <?= (int) $r['number'] ?>
                     </option>
                 <?php endforeach; ?>
             </select>
         </form>
 
-        <?php if ($textoCompartilharJogos): ?>
+        <?php if ($gamesShareText): ?>
             <div class="text-center mb-4">
                 <a class="btn btn-whatsapp btn-sm" target="_blank" rel="noopener"
-                   href="https://wa.me/?text=<?= rawurlencode($textoCompartilharJogos) ?>">
-                    <i class="fa-brands fa-whatsapp"></i> Compartilhar rodada <?= (int) $rodadaSelecionada['numero'] ?>
+                   href="https://wa.me/?text=<?= rawurlencode($gamesShareText) ?>">
+                    <i class="fa-brands fa-whatsapp"></i> Compartilhar rodada <?= (int) $selectedRound['number'] ?>
                 </a>
             </div>
         <?php endif; ?>
 
-        <?php if (empty($jogos)): ?>
+        <?php if (empty($games)): ?>
             <p class="text-center text-muted">Nenhum jogo encontrado para essa rodada.</p>
         <?php else: ?>
             <div class="row g-3 justify-content-center">
-                <?php foreach ($jogos as $jogo): ?>
+                <?php foreach ($games as $game): ?>
                     <div class="col-md-6 col-lg-5">
                         <div class="card jogo-card">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div class="text-center flex-fill">
-                                        <?php if (!empty($jogo['casa_escudo'])): ?>
-                                            <img src="<?= e($jogo['casa_escudo']) ?>" class="escudo-time mb-1" alt="">
+                                        <?php if (!empty($game['home_crest'])): ?>
+                                            <img src="<?= e($game['home_crest']) ?>" class="escudo-time mb-1" alt="">
                                         <?php endif; ?>
-                                        <div class="small fw-semibold"><?= e($jogo['casa_abreviacao'] ?? $jogo['casa_nome']) ?></div>
+                                        <div class="small fw-semibold"><?= e($game['home_abbreviation'] ?? $game['home_name']) ?></div>
                                     </div>
 
                                     <div class="px-3 text-center">
-                                        <?php if ($jogo['placar_casa'] !== null && $jogo['placar_visitante'] !== null): ?>
-                                            <div class="fs-4 fw-bold"><?= (int) $jogo['placar_casa'] ?> x <?= (int) $jogo['placar_visitante'] ?></div>
+                                        <?php if ($game['home_score'] !== null && $game['away_score'] !== null): ?>
+                                            <div class="fs-4 fw-bold"><?= (int) $game['home_score'] ?> x <?= (int) $game['away_score'] ?></div>
                                         <?php else: ?>
                                             <div class="fs-5 fw-bold text-muted">x</div>
                                         <?php endif; ?>
-                                        <?php if (!empty($jogo['partida_data'])): ?>
-                                            <div class="small text-muted"><?= (new DateTime($jogo['partida_data']))->format('d/m H:i') ?></div>
+                                        <?php if (!empty($game['played_at'])): ?>
+                                            <div class="small text-muted"><?= (new DateTime($game['played_at']))->format('d/m H:i') ?></div>
                                         <?php endif; ?>
                                     </div>
 
                                     <div class="text-center flex-fill">
-                                        <?php if (!empty($jogo['visitante_escudo'])): ?>
-                                            <img src="<?= e($jogo['visitante_escudo']) ?>" class="escudo-time mb-1" alt="">
+                                        <?php if (!empty($game['away_crest'])): ?>
+                                            <img src="<?= e($game['away_crest']) ?>" class="escudo-time mb-1" alt="">
                                         <?php endif; ?>
-                                        <div class="small fw-semibold"><?= e($jogo['visitante_abreviacao'] ?? $jogo['visitante_nome']) ?></div>
+                                        <div class="small fw-semibold"><?= e($game['away_abbreviation'] ?? $game['away_name']) ?></div>
                                     </div>
                                 </div>
-                                <?php if (!empty($jogo['local'])): ?>
-                                    <div class="text-center small text-muted mt-2"><?= e($jogo['local']) ?></div>
+                                <?php if (!empty($game['venue'])): ?>
+                                    <div class="text-center small text-muted mt-2"><?= e($game['venue']) ?></div>
                                 <?php endif; ?>
                             </div>
                         </div>

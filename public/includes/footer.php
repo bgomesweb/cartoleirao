@@ -6,8 +6,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="assets/js/compartilhar.js?v=<?= @filemtime(__DIR__ . '/../assets/js/compartilhar.js') ?: time() ?>"></script>
-<?php if (!empty($scriptsExtras)): ?>
-    <?php foreach ($scriptsExtras as $src): ?>
+<?php if (!empty($extraScripts)): ?>
+    <?php foreach ($extraScripts as $src): ?>
         <script src="<?= e($src) ?>"></script>
     <?php endforeach; ?>
 <?php endif; ?>
