@@ -8,78 +8,78 @@ use Cartoleirao\Database\Connection;
 
 class AdminAuth
 {
-    public static function tentarLogin(string $usuario, string $senha): bool
+    public static function attemptLogin(string $username, string $password): bool
     {
         $pdo = Connection::get();
-        $stmt = $pdo->prepare('SELECT id, senha_hash FROM admins WHERE usuario = ?');
-        $stmt->execute([$usuario]);
+        $stmt = $pdo->prepare('SELECT id, password_hash FROM admins WHERE username = ?');
+        $stmt->execute([$username]);
         $admin = $stmt->fetch();
 
-        if (!$admin || !password_verify($senha, $admin['senha_hash'])) {
+        if (!$admin || !password_verify($password, $admin['password_hash'])) {
             return false;
         }
 
         session_regenerate_id(true);
         $_SESSION['admin_id'] = (int) $admin['id'];
-        $_SESSION['admin_usuario'] = $usuario;
+        $_SESSION['admin_username'] = $username;
 
         return true;
     }
 
-    public static function logado(): bool
+    public static function isLoggedIn(): bool
     {
         return !empty($_SESSION['admin_id']);
     }
 
-    public static function usuarioAtual(): ?string
+    public static function currentUsername(): ?string
     {
-        return $_SESSION['admin_usuario'] ?? null;
+        return $_SESSION['admin_username'] ?? null;
     }
 
     /**
-     * Troca a senha do admin logado. Exige a senha atual correta (mesmo
-     * já estando logado — evita que uma sessão esquecida aberta em outro
-     * lugar consiga trocar a senha sem saber a atual).
+     * Changes the logged-in admin's password. Requires the current password
+     * (even though already logged in — prevents a forgotten open session
+     * elsewhere from changing the password without knowing the current one).
      *
-     * @return true|string true em caso de sucesso, ou uma mensagem de erro
+     * @return true|string true on success, or an error message
      */
-    public static function alterarSenha(int $adminId, string $senhaAtual, string $novaSenha)
+    public static function changePassword(int $adminId, string $currentPassword, string $newPassword)
     {
-        if (mb_strlen($novaSenha) < 8) {
+        if (mb_strlen($newPassword) < 8) {
             return 'A nova senha precisa ter pelo menos 8 caracteres.';
         }
 
         $pdo = Connection::get();
-        $stmt = $pdo->prepare('SELECT senha_hash FROM admins WHERE id = ?');
+        $stmt = $pdo->prepare('SELECT password_hash FROM admins WHERE id = ?');
         $stmt->execute([$adminId]);
         $admin = $stmt->fetch();
 
-        if (!$admin || !password_verify($senhaAtual, $admin['senha_hash'])) {
+        if (!$admin || !password_verify($currentPassword, $admin['password_hash'])) {
             return 'Senha atual incorreta.';
         }
 
-        $stmt = $pdo->prepare('UPDATE admins SET senha_hash = ? WHERE id = ?');
-        $stmt->execute([password_hash($novaSenha, PASSWORD_DEFAULT), $adminId]);
+        $stmt = $pdo->prepare('UPDATE admins SET password_hash = ? WHERE id = ?');
+        $stmt->execute([password_hash($newPassword, PASSWORD_DEFAULT), $adminId]);
 
         return true;
     }
 
     public static function logout(): void
     {
-        unset($_SESSION['admin_id'], $_SESSION['admin_usuario']);
+        unset($_SESSION['admin_id'], $_SESSION['admin_username']);
         session_regenerate_id(true);
     }
 
-    public static function exigirLogin(): void
+    public static function requireLogin(): void
     {
-        if (!self::logado()) {
+        if (!self::isLoggedIn()) {
             redirect('/admin/login.php');
         }
     }
 
-    public static function exigirLoginAjax(): void
+    public static function requireLoginAjax(): void
     {
-        if (!self::logado()) {
+        if (!self::isLoggedIn()) {
             header('Content-Type: application/json', true, 401);
             echo json_encode(['erro' => 'Não autenticado']);
             exit;

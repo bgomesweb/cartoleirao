@@ -11,7 +11,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 date_default_timezone_set('America/Sao_Paulo');
 
-// Helper simples pra escapar saída em views
+// Simple helper to escape output in views
 function e(?string $value): string
 {
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');

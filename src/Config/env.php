@@ -3,19 +3,19 @@
 declare(strict_types=1);
 
 /**
- * Em produção (hospedagem compartilhada tipo cPanel), não existe
- * docker-compose.yml pra injetar variáveis de ambiente — então carregamos
- * de um arquivo local (config.local.php) que fica FORA da pasta pública e
- * NUNCA vai pro Git (já está no .gitignore).
+ * In production (shared hosting like cPanel), there's no docker-compose.yml
+ * to inject environment variables — so we load them from a local file
+ * (config.local.php) that lives OUTSIDE the public folder and NEVER goes
+ * into Git (already in .gitignore).
  *
- * No Docker local, esse arquivo não existe — o file_exists() abaixo pula
- * silenciosamente e as variáveis continuam vindo do docker-compose.yml
- * normalmente, como já funcionava.
+ * In local Docker, this file doesn't exist — the file_exists() check below
+ * silently skips it and the variables keep coming from docker-compose.yml
+ * as usual.
  *
- * Ver config.local.php.example na raiz do projeto pro modelo a preencher.
+ * See config.local.php.example at the project root for the template to fill in.
  */
-$configLocal = __DIR__ . '/../../config.local.php';
+$localConfigFile = __DIR__ . '/../../config.local.php';
 
-if (file_exists($configLocal)) {
-    require $configLocal;
+if (file_exists($localConfigFile)) {
+    require $localConfigFile;
 }

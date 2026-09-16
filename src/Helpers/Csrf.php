@@ -20,7 +20,7 @@ class Csrf
         return '<input type="hidden" name="_csrf" value="' . self::token() . '">';
     }
 
-    public static function valido(?string $token): bool
+    public static function isValid(?string $token): bool
     {
         return !empty($token) && !empty($_SESSION['_csrf']) && hash_equals($_SESSION['_csrf'], $token);
     }

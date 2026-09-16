@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Cartoleirao\Database;
 
 use PDO;
@@ -14,20 +16,20 @@ class Connection
         if (self::$instance === null) {
             $host = getenv('DB_HOST') ?: 'db';
             $port = getenv('DB_PORT') ?: '3306';
-            $db   = getenv('DB_DATABASE') ?: 'cartoleirao';
-            $user = getenv('DB_USERNAME') ?: 'cartoleirao';
-            $pass = getenv('DB_PASSWORD') ?: 'cartoleirao';
+            $database = getenv('DB_DATABASE') ?: 'cartoleirao';
+            $username = getenv('DB_USERNAME') ?: 'cartoleirao';
+            $password = getenv('DB_PASSWORD') ?: 'cartoleirao';
 
-            $dsn = "mysql:host={$host};port={$port};dbname={$db};charset=utf8mb4";
+            $dsn = "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4";
 
             try {
-                self::$instance = new PDO($dsn, $user, $pass, [
+                self::$instance = new PDO($dsn, $username, $password, [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES => false,
                 ]);
             } catch (PDOException $e) {
-                throw new PDOException('Falha ao conectar no banco: ' . $e->getMessage(), (int) $e->getCode());
+                throw new PDOException('Failed to connect to the database: ' . $e->getMessage(), (int) $e->getCode());
             }
         }
 
