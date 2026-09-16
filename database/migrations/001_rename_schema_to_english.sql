@@ -80,6 +80,13 @@ ALTER TABLE league_settings
     CHANGE COLUMN premio_8 prize_8 DECIMAL(10,2) NULL,
     CHANGE COLUMN premiacao_texto prize_description VARCHAR(500) NULL;
 
+-- registrants.liga_id tem uma FK de saída pra leagues(id), suportada pelo
+-- índice composto uq_participantes_liga_email — por isso o rename de coluna,
+-- a criação do índice novo e a remoção do antigo vão em 3 instruções
+-- separadas (dropar e recriar esse índice na MESMA instrução do CHANGE
+-- COLUMN falha com "Cannot drop index ... needed in a foreign key
+-- constraint", porque o MySQL não garante que exista sempre um índice de
+-- suporte válido durante uma única ALTER TABLE combinando as duas coisas).
 ALTER TABLE registrants
     CHANGE COLUMN liga_id league_id INT NOT NULL,
     CHANGE COLUMN nome name VARCHAR(150) NOT NULL,
@@ -88,9 +95,11 @@ ALTER TABLE registrants
     CHANGE COLUMN cartola_time_slug cartola_team_slug VARCHAR(150) NULL,
     CHANGE COLUMN vinculado_api linked_to_api TINYINT(1) NOT NULL DEFAULT 0,
     CHANGE COLUMN pago paid TINYINT(1) NOT NULL DEFAULT 0,
-    CHANGE COLUMN ativo active TINYINT(1) NOT NULL DEFAULT 1,
-    DROP INDEX uq_participantes_liga_email,
+    CHANGE COLUMN ativo active TINYINT(1) NOT NULL DEFAULT 1;
+ALTER TABLE registrants
     ADD UNIQUE KEY uq_registrants_league_email (league_id, email);
+ALTER TABLE registrants
+    DROP INDEX uq_participantes_liga_email;
 
 ALTER TABLE clubs
     CHANGE COLUMN nome name VARCHAR(150) NOT NULL,
@@ -106,6 +115,8 @@ ALTER TABLE rounds
     DROP INDEX uq_rodadas_numero,
     ADD UNIQUE KEY uq_rounds_number (number);
 
+-- mesmo caso de registrants acima: round_id tem FK de saída suportada pelo
+-- índice composto que estamos renomeando, então 3 instruções separadas.
 ALTER TABLE games
     CHANGE COLUMN cartola_partida_id cartola_game_id BIGINT NULL,
     CHANGE COLUMN rodada_id round_id INT NOT NULL,
@@ -114,10 +125,14 @@ ALTER TABLE games
     CHANGE COLUMN placar_casa home_score INT NULL,
     CHANGE COLUMN placar_visitante away_score INT NULL,
     CHANGE COLUMN local venue VARCHAR(150) NULL,
-    CHANGE COLUMN partida_data played_at DATETIME NULL,
-    DROP INDEX uq_jogos_rodada_confronto,
+    CHANGE COLUMN partida_data played_at DATETIME NULL;
+ALTER TABLE games
     ADD UNIQUE KEY uq_games_round_matchup (round_id, home_club_id, away_club_id);
+ALTER TABLE games
+    DROP INDEX uq_jogos_rodada_confronto;
 
+-- mesmo caso acima: league_id tem FK de saída suportada pelo índice
+-- composto que estamos renomeando, então 3 instruções separadas.
 ALTER TABLE official_league_teams
     CHANGE COLUMN liga_id league_id INT NOT NULL,
     CHANGE COLUMN cartola_time_id cartola_team_id BIGINT NOT NULL,
@@ -133,19 +148,25 @@ ALTER TABLE official_league_teams
     CHANGE COLUMN pc_vitorias standing_wins INT NULL,
     CHANGE COLUMN pc_empates standing_draws INT NULL,
     CHANGE COLUMN pc_derrotas standing_losses INT NULL,
-    CHANGE COLUMN pc_pontos_cartola standing_cartola_points DECIMAL(10,4) NULL,
-    DROP INDEX uq_liga_time,
+    CHANGE COLUMN pc_pontos_cartola standing_cartola_points DECIMAL(10,4) NULL;
+ALTER TABLE official_league_teams
     ADD UNIQUE KEY uq_league_team (league_id, cartola_team_id);
+ALTER TABLE official_league_teams
+    DROP INDEX uq_liga_time;
 
+-- mesmo caso acima: official_league_team_id tem FK de saída suportada pelo
+-- índice composto que estamos renomeando, então 3 instruções separadas.
 ALTER TABLE scores
     CHANGE COLUMN time_liga_oficial_id official_league_team_id INT NOT NULL,
     CHANGE COLUMN rodada_id round_id INT NOT NULL,
     CHANGE COLUMN pontos points DECIMAL(7,2) NOT NULL DEFAULT 0,
     CHANGE COLUMN patrimonio budget DECIMAL(12,2) NULL,
     CHANGE COLUMN origem source ENUM('api', 'manual') NOT NULL DEFAULT 'api',
-    CHANGE COLUMN atualizado_em updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    DROP INDEX uq_time_rodada,
+    CHANGE COLUMN atualizado_em updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+ALTER TABLE scores
     ADD UNIQUE KEY uq_team_round (official_league_team_id, round_id);
+ALTER TABLE scores
+    DROP INDEX uq_time_rodada;
 
 ALTER TABLE cartola_auth_token
     CHANGE COLUMN autenticado_em authenticated_at DATETIME NULL,
@@ -156,12 +177,16 @@ ALTER TABLE market_status_cache
     CHANGE COLUMN rodada_atual current_round INT NULL,
     CHANGE COLUMN atualizado_em updated_at DATETIME NULL;
 
+-- mesmo caso acima: league_id tem FK de saída suportada pelo índice
+-- composto que estamos renomeando, então 3 instruções separadas.
 ALTER TABLE bonus_rounds
     CHANGE COLUMN liga_id league_id INT NOT NULL,
     CHANGE COLUMN rodada_numero round_number INT NOT NULL,
-    CHANGE COLUMN valor_premio prize_amount DECIMAL(10,2) NULL,
-    DROP INDEX uq_liga_rodada_bonus,
+    CHANGE COLUMN valor_premio prize_amount DECIMAL(10,2) NULL;
+ALTER TABLE bonus_rounds
     ADD UNIQUE KEY uq_league_bonus_round (league_id, round_number);
+ALTER TABLE bonus_rounds
+    DROP INDEX uq_liga_rodada_bonus;
 
 ALTER TABLE sync_log
     CHANGE COLUMN tipo type VARCHAR(50) NOT NULL,
@@ -186,3 +211,15 @@ ALTER TABLE rounds
     CHANGE COLUMN status status VARCHAR(20) NOT NULL DEFAULT 'scheduled';
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ============================================================
+-- Nota de verificação (testado com docker: schema.sql -> dados de exemplo
+-- em todas as 13 tabelas -> esta migração -> zero perda de linhas, todos os
+-- valores traduzidos corretamente). Única diferença cosmética restante
+-- contra um schema_en.sql instalado do zero: os índices simples
+-- auto-nomeados que dão suporte às FKs em `games` (clube_casa_id,
+-- clube_visitante_id), `official_league_teams` (participante_id) e
+-- `scores` (rodada_id) mantêm o nome antigo (o MySQL não renomeia um
+-- índice automaticamente quando a coluna é renomeada via CHANGE COLUMN).
+-- Não afeta funcionamento nenhum — são só os nomes internos dos índices.
+-- ============================================================

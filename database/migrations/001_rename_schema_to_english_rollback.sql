@@ -39,9 +39,11 @@ ALTER TABLE sync_log
 ALTER TABLE bonus_rounds
     CHANGE COLUMN league_id liga_id INT NOT NULL,
     CHANGE COLUMN round_number rodada_numero INT NOT NULL,
-    CHANGE COLUMN prize_amount valor_premio DECIMAL(10,2) NULL,
-    DROP INDEX uq_league_bonus_round,
+    CHANGE COLUMN prize_amount valor_premio DECIMAL(10,2) NULL;
+ALTER TABLE bonus_rounds
     ADD UNIQUE KEY uq_liga_rodada_bonus (liga_id, rodada_numero);
+ALTER TABLE bonus_rounds
+    DROP INDEX uq_league_bonus_round;
 
 ALTER TABLE market_status_cache
     CHANGE COLUMN status_code status_mercado INT NULL,
@@ -58,9 +60,11 @@ ALTER TABLE scores
     CHANGE COLUMN points pontos DECIMAL(7,2) NOT NULL DEFAULT 0,
     CHANGE COLUMN budget patrimonio DECIMAL(12,2) NULL,
     CHANGE COLUMN source origem ENUM('api', 'manual') NOT NULL DEFAULT 'api',
-    CHANGE COLUMN updated_at atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    DROP INDEX uq_team_round,
+    CHANGE COLUMN updated_at atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+ALTER TABLE scores
     ADD UNIQUE KEY uq_time_rodada (time_liga_oficial_id, rodada_id);
+ALTER TABLE scores
+    DROP INDEX uq_team_round;
 
 ALTER TABLE official_league_teams
     CHANGE COLUMN league_id liga_id INT NOT NULL,
@@ -77,9 +81,11 @@ ALTER TABLE official_league_teams
     CHANGE COLUMN standing_wins pc_vitorias INT NULL,
     CHANGE COLUMN standing_draws pc_empates INT NULL,
     CHANGE COLUMN standing_losses pc_derrotas INT NULL,
-    CHANGE COLUMN standing_cartola_points pc_pontos_cartola DECIMAL(10,4) NULL,
-    DROP INDEX uq_league_team,
+    CHANGE COLUMN standing_cartola_points pc_pontos_cartola DECIMAL(10,4) NULL;
+ALTER TABLE official_league_teams
     ADD UNIQUE KEY uq_liga_time (liga_id, cartola_time_id);
+ALTER TABLE official_league_teams
+    DROP INDEX uq_league_team;
 
 ALTER TABLE games
     CHANGE COLUMN cartola_game_id cartola_partida_id BIGINT NULL,
@@ -89,9 +95,11 @@ ALTER TABLE games
     CHANGE COLUMN home_score placar_casa INT NULL,
     CHANGE COLUMN away_score placar_visitante INT NULL,
     CHANGE COLUMN venue local VARCHAR(150) NULL,
-    CHANGE COLUMN played_at partida_data DATETIME NULL,
-    DROP INDEX uq_games_round_matchup,
+    CHANGE COLUMN played_at partida_data DATETIME NULL;
+ALTER TABLE games
     ADD UNIQUE KEY uq_jogos_rodada_confronto (rodada_id, clube_casa_id, clube_visitante_id);
+ALTER TABLE games
+    DROP INDEX uq_games_round_matchup;
 
 ALTER TABLE rounds
     CHANGE COLUMN number numero INT NOT NULL,
@@ -115,9 +123,11 @@ ALTER TABLE registrants
     CHANGE COLUMN cartola_team_slug cartola_time_slug VARCHAR(150) NULL,
     CHANGE COLUMN linked_to_api vinculado_api TINYINT(1) NOT NULL DEFAULT 0,
     CHANGE COLUMN paid pago TINYINT(1) NOT NULL DEFAULT 0,
-    CHANGE COLUMN active ativo TINYINT(1) NOT NULL DEFAULT 1,
-    DROP INDEX uq_registrants_league_email,
+    CHANGE COLUMN active ativo TINYINT(1) NOT NULL DEFAULT 1;
+ALTER TABLE registrants
     ADD UNIQUE KEY uq_participantes_liga_email (liga_id, email);
+ALTER TABLE registrants
+    DROP INDEX uq_registrants_league_email;
 
 ALTER TABLE league_settings
     CHANGE COLUMN league_id liga_id INT NOT NULL,
