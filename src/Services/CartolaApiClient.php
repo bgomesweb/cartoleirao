@@ -7,109 +7,110 @@ namespace Cartoleirao\Services;
 class CartolaApiClient
 {
     private string $baseUrl;
-    private ?string $ultimoErro = null;
+    private ?string $lastError = null;
 
     public function __construct(?string $baseUrl = null)
     {
-        // A API mudou de domínio em 2026: api.cartolafc.globo.com agora só
-        // redireciona (301) pra api.cartola.globo.com (sem o "fc").
+        // The API changed domains in 2026: api.cartolafc.globo.com now only
+        // 301-redirects to api.cartola.globo.com (without "fc").
         $this->baseUrl = $baseUrl ?? (getenv('CARTOLA_API_BASE') ?: 'https://api.cartola.globo.com');
     }
 
-    public function getUltimoErro(): ?string
+    public function getLastError(): ?string
     {
-        return $this->ultimoErro;
+        return $this->lastError;
     }
 
     /**
-     * Busca times pelo nome (usado pra tentar vincular o "nome do time no Cartola"
-     * informado na inscrição a um time_id real da API).
+     * Searches teams by name (used to try matching the "Cartola team name"
+     * given at sign-up to a real time_id from the API).
      *
-     * Retorna uma lista de times candidatos: [['time_id' => ..., 'nome' => ..., 'nome_cartola' => ..., 'slug' => ...], ...]
-     * Retorna [] em caso de falha de rede/timeout — a vinculação nesse caso fica
-     * pendente pro admin resolver manualmente.
+     * Returns a list of candidate teams: [['team_id' => ..., 'name' => ..., 'cartola_name' => ..., 'slug' => ...], ...]
+     * Returns [] on network/timeout failure — the link stays pending for
+     * the admin to resolve manually in that case.
      */
-    public function buscarTimesPorNome(string $nome): array
+    public function searchTeamsByName(string $name): array
     {
-        $nome = trim($nome);
-        if ($nome === '') {
+        $name = trim($name);
+        if ($name === '') {
             return [];
         }
 
-        $url = $this->baseUrl . '/times?q=' . rawurlencode($nome);
-        $resposta = $this->get($url);
+        $url = $this->baseUrl . '/times?q=' . rawurlencode($name);
+        $response = $this->get($url);
 
-        if ($resposta === null || !is_array($resposta)) {
+        if ($response === null || !is_array($response)) {
             return [];
         }
 
-        $times = [];
-        foreach ($resposta as $item) {
+        $teams = [];
+        foreach ($response as $item) {
             if (!isset($item['time_id'])) {
                 continue;
             }
-            $times[] = [
-                'time_id' => (int) $item['time_id'],
-                'nome' => $item['nome'] ?? '',
-                'nome_cartola' => $item['nome_cartola'] ?? ($item['nome'] ?? ''),
+
+            $teams[] = [
+                'team_id' => (int) $item['time_id'],
+                'name' => $item['nome'] ?? '',
+                'cartola_name' => $item['nome_cartola'] ?? ($item['nome'] ?? ''),
                 'slug' => $item['slug'] ?? '',
-                'escudo' => $item['url_escudo_svg'] ?? ($item['escudo'] ?? null),
+                'crest' => $item['url_escudo_svg'] ?? ($item['escudo'] ?? null),
             ];
         }
 
-        return $times;
+        return $teams;
     }
 
-    public function statusMercado(): ?array
+    public function marketStatus(): ?array
     {
         return $this->get($this->baseUrl . '/mercado/status');
     }
 
     /**
-     * Retorna o dicionário de clubes (chave = id do clube na API).
+     * Returns the club dictionary (key = club id in the API).
      */
-    public function clubes(): ?array
+    public function clubs(): ?array
     {
         return $this->get($this->baseUrl . '/clubes');
     }
 
-    public function partidasDaRodada(int $rodada): ?array
+    public function gamesForRound(int $round): ?array
     {
-        return $this->get($this->baseUrl . '/partidas/' . $rodada);
+        return $this->get($this->baseUrl . '/partidas/' . $round);
     }
 
-    public function pontuacaoTimeNaRodada(int $timeId, int $rodada): ?array
+    public function teamScoreForRound(int $teamId, int $round): ?array
     {
-        return $this->get($this->baseUrl . '/time/id/' . $timeId . '/' . $rodada);
+        return $this->get($this->baseUrl . '/time/id/' . $teamId . '/' . $round);
     }
 
     /**
-     * Autentica no login da Globo e retorna o token (glbId) usado nos
-     * endpoints /auth/* da API do Cartola (ex: auth/liga/{slug}).
-     * Retorna null em caso de falha (credenciais inválidas, API fora do ar, etc).
+     * Authenticates against Globo's login and returns the token (glbId) used
+     * by the /auth/* endpoints of the Cartola API (e.g. auth/liga/{slug}).
+     * Returns null on failure (invalid credentials, API down, etc).
      */
-    public function login(string $email, string $senha): ?string
+    public function login(string $email, string $password): ?string
     {
-        $this->ultimoErro = null;
+        $this->lastError = null;
 
         $body = json_encode([
             'payload' => [
                 'email' => $email,
-                'password' => $senha,
-                'serviceId' => 4728, // id de serviço do Cartola FC no login da Globo
+                'password' => $password,
+                'serviceId' => 4728, // Cartola FC's service id in Globo's login
             ],
         ]);
 
-        // NOTA (confirmado em produção, ago/2026): esse endpoint legado
-        // (login.globo.com/api/authentication -> glbId) parece ter sido
-        // substituído pelo login OIDC via goidc.globo.com — o site
-        // cartola.globo.com hoje autentica as chamadas à API com
-        // "Authorization: Bearer <access_token OIDC>" + headers
-        // x-glb-auth/x-glb-app (ver ligaOficial() abaixo), não mais com
-        // X-GLB-Token. Deixamos esse método como estava por compatibilidade,
-        // mas ele provavelmente já não funciona mais — o caminho real hoje é
-        // colar o access_token OIDC manualmente (ver CartolaAuthService).
-        $resposta = $this->request('POST', 'https://login.globo.com/api/authentication', $body, [
+        // NOTE (confirmed in production, Aug/2026): this legacy endpoint
+        // (login.globo.com/api/authentication -> glbId) appears to have
+        // been replaced by OIDC login via goidc.globo.com — the
+        // cartola.globo.com site now authenticates API calls with
+        // "Authorization: Bearer <OIDC access_token>" + x-glb-auth/x-glb-app
+        // headers (see officialLeague() below), not X-GLB-Token anymore.
+        // Left this method as-is for compatibility, but it likely doesn't
+        // work anymore — the real path today is pasting the OIDC
+        // access_token manually (see CartolaAuthService).
+        $response = $this->request('POST', 'https://login.globo.com/api/authentication', $body, [
             'Content-Type: application/json',
             'Accept: application/json',
             'Cache-Control: no-cache',
@@ -117,32 +118,33 @@ class CartolaApiClient
             'Referer: https://cartola.globo.com/',
         ], 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36');
 
-        if ($resposta === null) {
+        if ($response === null) {
             return null;
         }
 
-        if (empty($resposta['glbId'])) {
-            $mensagem = $resposta['userMessage'] ?? $resposta['message'] ?? 'resposta sem glbId';
-            $this->ultimoErro = "Login falhou: {$mensagem}";
+        if (empty($response['glbId'])) {
+            $message = $response['userMessage'] ?? $response['message'] ?? 'resposta sem glbId';
+            $this->lastError = "Login falhou: {$message}";
             return null;
         }
 
-        return (string) $resposta['glbId'];
+        return (string) $response['glbId'];
     }
 
     /**
-     * Consulta a liga OFICIAL do Cartola (times cadastrados de verdade na
-     * liga criada em cartola.globo.com). Requer o access_token OIDC obtido
-     * no login em cartola.globo.com (ver CartolaAuthService) — confirmado em
-     * produção que a API espera "Authorization: Bearer <token>" mais os
-     * headers x-glb-auth/x-glb-app, e NÃO o antigo X-GLB-Token.
+     * Queries the OFFICIAL Cartola league (teams really registered in the
+     * league created on cartola.globo.com). Requires the OIDC access_token
+     * obtained by logging in on cartola.globo.com (see CartolaAuthService)
+     * — confirmed in production that the API expects
+     * "Authorization: Bearer <token>" plus the x-glb-auth/x-glb-app headers,
+     * NOT the old X-GLB-Token.
      *
-     * A resposta da API não tem documentação oficial; aceitamos algumas
-     * variações de formato defensivamente (ver SincronizacaoService).
+     * There's no official documentation for the response shape; we
+     * defensively accept a few format variations (see SyncService).
      */
-    public function ligaOficial(string $slug, string $token, int $pagina = 1): ?array
+    public function officialLeague(string $slug, string $token, int $page = 1): ?array
     {
-        $url = $this->baseUrl . '/auth/liga/' . rawurlencode($slug) . '?page=' . $pagina;
+        $url = $this->baseUrl . '/auth/liga/' . rawurlencode($slug) . '?page=' . $page;
 
         return $this->request('GET', $url, null, [
             'Authorization: Bearer ' . $token,
@@ -154,17 +156,17 @@ class CartolaApiClient
     }
 
     /**
-     * Consulta uma competição do tipo "Pontos Corridos" (formato novo do
-     * Cartola, com ID opaco em vez de slug legível — ex: URL
-     * cartola.globo.com/#!/competicoes/pontoscorridos/{id}). Endpoint
-     * confirmado em produção (ago/2026): GET
-     * /auth/competicoes/pontoscorridos/slug/{id} (o segmento "slug" no path
-     * é fixo/literal, o {id} é o hash da URL, não um slug de verdade).
-     * Diferente de auth/liga/{slug}, essa resposta já vem completa (todos os
-     * participantes de uma vez, sem paginação) e já traz `confrontos` e
-     * `ranking` prontos.
+     * Queries a "Pontos Corridos" (round-robin) competition — the newer
+     * Cartola format, with an opaque ID instead of a readable slug (e.g.
+     * URL cartola.globo.com/#!/competicoes/pontoscorridos/{id}). Endpoint
+     * confirmed in production (Aug/2026): GET
+     * /auth/competicoes/pontoscorridos/slug/{id} (the "slug" path segment
+     * is fixed/literal, the {id} is the URL hash, not an actual slug).
+     * Unlike auth/liga/{slug}, this response already comes complete (all
+     * participants at once, no pagination) and already includes
+     * `confrontos` (matchups) and `ranking`.
      */
-    public function competicaoPontosCorridos(string $id, string $token): ?array
+    public function roundRobinCompetition(string $id, string $token): ?array
     {
         $url = $this->baseUrl . '/auth/competicoes/pontoscorridos/slug/' . rawurlencode($id);
 
@@ -178,14 +180,14 @@ class CartolaApiClient
     }
 
     /**
-     * Busca ligas (do usuário autenticado) pelo nome — útil só pra
-     * diagnosticar qual é o slug real de uma liga quando o slug salvo no
-     * admin está dando 404 no auth/liga/{slug}. Não é usado no fluxo normal
-     * de sincronização.
+     * Searches (the authenticated user's) leagues by name — only useful to
+     * diagnose what the real slug of a league is when the slug saved in
+     * the admin panel is 404ing on auth/liga/{slug}. Not used in the
+     * normal sync flow.
      */
-    public function buscarLigasPorNome(string $nome, string $token): ?array
+    public function searchLeaguesByName(string $name, string $token): ?array
     {
-        $url = $this->baseUrl . '/ligas?q=' . rawurlencode($nome);
+        $url = $this->baseUrl . '/ligas?q=' . rawurlencode($name);
 
         return $this->request('GET', $url, null, [
             'Authorization: Bearer ' . $token,
@@ -201,11 +203,11 @@ class CartolaApiClient
         return $this->request('GET', $url);
     }
 
-    private function request(string $metodo, string $url, ?string $body = null, array $headersExtra = [], ?string $userAgent = null): ?array
+    private function request(string $method, string $url, ?string $body = null, array $extraHeaders = [], ?string $userAgent = null): ?array
     {
-        $this->ultimoErro = null;
+        $this->lastError = null;
 
-        $headers = array_merge(['Accept: application/json'], $headersExtra);
+        $headers = array_merge(['Accept: application/json'], $extraHeaders);
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -218,35 +220,35 @@ class CartolaApiClient
             CURLOPT_MAXREDIRS => 3,
         ]);
 
-        if ($metodo === 'POST') {
+        if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
             if ($body !== null) {
                 curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
             }
         }
 
-        $respostaBody = curl_exec($ch);
+        $responseBody = curl_exec($ch);
         $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $erroCurl = curl_error($ch);
+        $curlError = curl_error($ch);
 
-        if ($respostaBody === false || $erroCurl) {
-            $this->ultimoErro = "Erro de conexão (curl): {$erroCurl}";
+        if ($responseBody === false || $curlError) {
+            $this->lastError = "Erro de conexão (curl): {$curlError}";
             return null;
         }
 
-        $decoded = json_decode($respostaBody, true);
+        $decoded = json_decode($responseBody, true);
 
         if ($status >= 400) {
-            $mensagemApi = is_array($decoded) ? ($decoded['userMessage'] ?? $decoded['message'] ?? '') : '';
-            if (!$mensagemApi && $respostaBody) {
-                $mensagemApi = substr(strip_tags((string) $respostaBody), 0, 300);
+            $apiMessage = is_array($decoded) ? ($decoded['userMessage'] ?? $decoded['message'] ?? '') : '';
+            if (!$apiMessage && $responseBody) {
+                $apiMessage = substr(strip_tags((string) $responseBody), 0, 300);
             }
-            $this->ultimoErro = "HTTP {$status} ao acessar {$url}" . ($mensagemApi ? " — {$mensagemApi}" : '');
+            $this->lastError = "HTTP {$status} ao acessar {$url}" . ($apiMessage ? " — {$apiMessage}" : '');
             return null;
         }
 
         if (!is_array($decoded)) {
-            $this->ultimoErro = 'Resposta da API não é um JSON válido: ' . substr((string) $respostaBody, 0, 200);
+            $this->lastError = 'Resposta da API não é um JSON válido: ' . substr((string) $responseBody, 0, 200);
             return null;
         }
 

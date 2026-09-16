@@ -6,98 +6,98 @@ namespace Cartoleirao\Services;
 
 class EmailService
 {
-    private ?string $ultimoErro = null;
+    private ?string $lastError = null;
 
-    public function getUltimoErro(): ?string
+    public function getLastError(): ?string
     {
-        return $this->ultimoErro;
+        return $this->lastError;
     }
 
     /**
-     * E-mail enviado assim que a inscrição é criada, com as instruções de
-     * pagamento via PIX. Valor e nome da liga vêm sempre da liga (nunca
-     * hardcoded), então funciona pra qualquer liga cadastrada.
+     * E-mail sent as soon as the registration is created, with PIX payment
+     * instructions. Amount and league name always come from the league
+     * (never hardcoded), so it works for any registered league.
      */
-    public function enviarInscricaoRealizada(array $participante, array $liga): bool
+    public function sendRegistrationReceived(array $registrant, array $league): bool
     {
-        $valor = $this->formatarValor($liga['valor_inscricao'] ?? null);
-        $pixChave = getenv('PIX_CHAVE') ?: '19998970090';
-        $pixFavorecido = getenv('PIX_FAVORECIDO') ?: 'Bruno Gomes da Silva';
-        $adminLiga = getenv('ADMIN_LIGA_NOME') ?: 'Bruno Gomes';
+        $amount = $this->formatAmount($league['registration_fee'] ?? null);
+        $pixKey = getenv('PIX_KEY') ?: (getenv('PIX_CHAVE') ?: '19998970090');
+        $pixRecipient = getenv('PIX_RECIPIENT') ?: (getenv('PIX_FAVORECIDO') ?: 'Bruno Gomes da Silva');
+        $leagueAdmin = getenv('LEAGUE_ADMIN_NAME') ?: (getenv('ADMIN_LIGA_NOME') ?: 'Bruno Gomes');
 
-        $assunto = "Inscrição recebida — {$liga['nome']}";
+        $subject = "Inscrição recebida — {$league['name']}";
 
-        $linhasValor = $valor !== null
-            ? "Para garantir sua participação, é necessário efetuar o pagamento no valor de {$valor} via PIX:"
+        $amountLine = $amount !== null
+            ? "Para garantir sua participação, é necessário efetuar o pagamento no valor de {$amount} via PIX:"
             : "Para garantir sua participação, é necessário efetuar o pagamento da inscrição via PIX:";
 
-        $corpo = "Olá {$participante['nome']},\n\n"
-            . "Sua inscrição na liga \"{$liga['nome']}\" foi efetuada com sucesso!\n\n"
-            . "{$linhasValor}\n\n"
-            . "Chave PIX: {$pixChave}\n"
-            . "Favorecido: {$pixFavorecido}\n\n"
-            . "Depois de pagar, envie o comprovante para o admin da liga ({$adminLiga}).\n\n"
+        $body = "Olá {$registrant['name']},\n\n"
+            . "Sua inscrição na liga \"{$league['name']}\" foi efetuada com sucesso!\n\n"
+            . "{$amountLine}\n\n"
+            . "Chave PIX: {$pixKey}\n"
+            . "Favorecido: {$pixRecipient}\n\n"
+            . "Depois de pagar, envie o comprovante para o admin da liga ({$leagueAdmin}).\n\n"
             . "Obrigado,\n"
             . "Equipe Cartoleirão";
 
-        return $this->enviar($participante['email'], $participante['nome'], $assunto, $corpo);
+        return $this->send($registrant['email'], $registrant['name'], $subject, $body);
     }
 
-    /** E-mail enviado quando o admin marca a inscrição como paga (confirmação da participação). */
-    public function enviarPagamentoConfirmado(array $participante, array $liga): bool
+    /** E-mail sent when the admin marks the registration as paid (participation confirmation). */
+    public function sendPaymentConfirmed(array $registrant, array $league): bool
     {
-        $assunto = "Participação confirmada — {$liga['nome']}";
+        $subject = "Participação confirmada — {$league['name']}";
 
-        $corpo = "Olá {$participante['nome']},\n\n"
-            . "Recebemos a confirmação do seu pagamento! Sua participação na liga \"{$liga['nome']}\" está confirmada.\n\n"
+        $body = "Olá {$registrant['name']},\n\n"
+            . "Recebemos a confirmação do seu pagamento! Sua participação na liga \"{$league['name']}\" está confirmada.\n\n"
             . "Boa sorte na temporada!\n\n"
             . "Equipe Cartoleirão";
 
-        return $this->enviar($participante['email'], $participante['nome'], $assunto, $corpo);
+        return $this->send($registrant['email'], $registrant['name'], $subject, $body);
     }
 
-    private function formatarValor($valor): ?string
+    private function formatAmount($amount): ?string
     {
-        if ($valor === null || $valor === '') {
+        if ($amount === null || $amount === '') {
             return null;
         }
 
-        return 'R$ ' . number_format((float) $valor, 2, ',', '.');
+        return 'R$ ' . number_format((float) $amount, 2, ',', '.');
     }
 
-    private function enviar(string $paraEmail, string $paraNome, string $assunto, string $corpoTexto): bool
+    private function send(string $toEmail, string $toName, string $subject, string $textBody): bool
     {
-        $this->ultimoErro = null;
+        $this->lastError = null;
 
-        $remetenteEmail = getenv('EMAIL_REMETENTE') ?: ('nao-responda@' . ($_SERVER['SERVER_NAME'] ?? 'localhost'));
-        $remetenteNome = getenv('EMAIL_REMETENTE_NOME') ?: 'Cartoleirão';
+        $fromEmail = getenv('EMAIL_FROM_ADDRESS') ?: (getenv('EMAIL_REMETENTE') ?: ('nao-responda@' . ($_SERVER['SERVER_NAME'] ?? 'localhost')));
+        $fromName = getenv('EMAIL_FROM_NAME') ?: (getenv('EMAIL_REMETENTE_NOME') ?: 'Cartoleirão');
 
-        // mail() nativo do PHP: funciona direto em hospedagem cPanel (via
-        // sendmail/exim local), sem precisar de biblioteca externa nem SMTP
-        // configurado. Cabeçalhos em UTF-8 com codificação MIME pro nome
-        // (assunto/nome podem ter acento).
+        // PHP's native mail(): works out of the box on cPanel hosting (via
+        // local sendmail/exim), no external library or SMTP config needed.
+        // UTF-8 headers with MIME encoding for the name (subject/name may
+        // have accents).
         $headers = [
-            'From: ' . $this->codificarCabecalho($remetenteNome) . ' <' . $remetenteEmail . '>',
-            'Reply-To: ' . $remetenteEmail,
+            'From: ' . $this->encodeHeader($fromName) . ' <' . $fromEmail . '>',
+            'Reply-To: ' . $fromEmail,
             'Content-Type: text/plain; charset=UTF-8',
             'Content-Transfer-Encoding: 8bit',
             'X-Mailer: Cartoleirao',
         ];
 
-        $assuntoCodificado = $this->codificarCabecalho($assunto);
+        $encodedSubject = $this->encodeHeader($subject);
 
-        $enviado = @mail($paraEmail, $assuntoCodificado, $corpoTexto, implode("\r\n", $headers));
+        $sent = @mail($toEmail, $encodedSubject, $textBody, implode("\r\n", $headers));
 
-        if (!$enviado) {
-            $this->ultimoErro = 'Falha ao enviar e-mail via mail() — confira se o servidor tem sendmail/exim configurado.';
+        if (!$sent) {
+            $this->lastError = 'Falha ao enviar e-mail via mail() — confira se o servidor tem sendmail/exim configurado.';
         }
 
-        return $enviado;
+        return $sent;
     }
 
-    /** Codifica assunto/nome com acentos no formato MIME esperado nos headers de e-mail (RFC 2047). */
-    private function codificarCabecalho(string $texto): string
+    /** Encodes an accented subject/name into the MIME format expected in e-mail headers (RFC 2047). */
+    private function encodeHeader(string $text): string
     {
-        return '=?UTF-8?B?' . base64_encode($texto) . '?=';
+        return '=?UTF-8?B?' . base64_encode($text) . '?=';
     }
 }

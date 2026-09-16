@@ -8,82 +8,83 @@ use Cartoleirao\Database\Connection;
 
 class CartolaAuthService
 {
-    // Token expira num prazo desconhecido (API não-oficial); renovamos por
-    // segurança a cada 12h em vez de tentar adivinhar a validade real.
-    private const TOKEN_VALIDO_HORAS = 12;
+    // Token expires after an unknown period (unofficial API); we renew it
+    // preemptively every 12h instead of trying to guess the real validity.
+    private const TOKEN_VALID_HOURS = 12;
 
     private CartolaApiClient $api;
-    private ?string $ultimoErro = null;
+    private ?string $lastError = null;
 
     public function __construct(?CartolaApiClient $api = null)
     {
         $this->api = $api ?? new CartolaApiClient();
     }
 
-    public function getUltimoErro(): ?string
+    public function getLastError(): ?string
     {
-        return $this->ultimoErro;
+        return $this->lastError;
     }
 
     /**
-     * Retorna um token válido (do cache, ou logando de novo se necessário).
-     * Retorna null se não houver credenciais configuradas ou se o login falhar.
+     * Returns a valid token (from cache, or by logging in again if
+     * needed). Returns null if no credentials are configured or if the
+     * login fails.
      */
-    public function obterToken(): ?string
+    public function getToken(): ?string
     {
-        $tokenCache = $this->lerTokenCache();
-        if ($tokenCache) {
-            return $tokenCache;
+        $cachedToken = $this->readCachedToken();
+        if ($cachedToken) {
+            return $cachedToken;
         }
 
         $email = getenv('CARTOLA_LOGIN_EMAIL') ?: null;
-        $senha = getenv('CARTOLA_LOGIN_SENHA') ?: null;
+        $password = getenv('CARTOLA_LOGIN_PASSWORD') ?: (getenv('CARTOLA_LOGIN_SENHA') ?: null);
 
-        if (!$email || !$senha) {
-            $this->ultimoErro = 'CARTOLA_LOGIN_EMAIL / CARTOLA_LOGIN_SENHA não configurados no .env';
+        if (!$email || !$password) {
+            $this->lastError = 'CARTOLA_LOGIN_EMAIL / CARTOLA_LOGIN_PASSWORD não configurados no .env';
             return null;
         }
 
-        $token = $this->api->login($email, $senha);
+        $token = $this->api->login($email, $password);
 
         if (!$token) {
-            $this->ultimoErro = $this->api->getUltimoErro() ?? 'Login falhou por motivo desconhecido';
+            $this->lastError = $this->api->getLastError() ?? 'Login falhou por motivo desconhecido';
             return null;
         }
 
-        $this->salvarTokenCache($token);
+        $this->saveCachedToken($token);
 
         return $token;
     }
 
-    /** Força um novo login, ignorando qualquer token em cache (usado quando o token cacheado dá 401/403). */
-    public function renovarToken(): ?string
+    /** Forces a new login, ignoring any cached token (used when the cached token gets a 401/403). */
+    public function renewToken(): ?string
     {
-        $this->limparTokenCache();
+        $this->clearCachedToken();
 
-        return $this->obterToken();
+        return $this->getToken();
     }
 
     /**
-     * Salva manualmente um token obtido fora do sistema (colado pelo admin,
-     * capturado no DevTools do navegador dele já logado em cartola.globo.com
-     * — o access_token OIDC enviado no header "Authorization: Bearer ...").
-     * Esse é o caminho recomendado pra "logar" no sistema: como o login
-     * automático esbarra em captcha, a gente aproveita a sessão que o
-     * próprio admin já resolveu manualmente no navegador.
+     * Manually saves a token obtained outside the system (pasted by the
+     * admin, captured in the DevTools of their browser already logged in
+     * to cartola.globo.com — the OIDC access_token sent in the
+     * "Authorization: Bearer ..." header). This is the recommended way to
+     * "log in" to the system: since automated login hits a captcha, we
+     * reuse the session the admin already solved manually in the browser.
      *
-     * Se o token colado for um JWT (é o caso do access_token OIDC atual),
-     * lemos a expiração real do claim `exp` em vez de chutar
-     * TOKEN_VALIDO_HORAS — assim o admin sabe exatamente quando precisa
-     * colar um novo, sem depender de uma estimativa.
+     * If the pasted token is a JWT (which the current OIDC access_token
+     * is), we read the real expiration from the `exp` claim instead of
+     * guessing TOKEN_VALID_HOURS — so the admin knows exactly when a new
+     * one is needed, without relying on an estimate.
      *
-     * @throws \InvalidArgumentException se o token vier vazio
+     * @throws \InvalidArgumentException if the token is empty
      */
-    public function salvarTokenManual(string $token): void
+    public function saveManualToken(string $token): void
     {
         $token = trim($token);
 
-        // Se colaram "Bearer eyJ..." por engano, aceita e remove o prefixo.
+        // If "Bearer eyJ..." was pasted by mistake, accept it and strip the prefix.
         if (stripos($token, 'Bearer ') === 0) {
             $token = trim(substr($token, 7));
         }
@@ -92,26 +93,26 @@ class CartolaAuthService
             throw new \InvalidArgumentException('Token vazio.');
         }
 
-        $expiraEm = $this->extrairExpiracaoJwt($token);
-        $this->salvarTokenCache($token, $expiraEm);
-        $this->ultimoErro = null;
+        $expiresAt = $this->extractJwtExpiration($token);
+        $this->saveCachedToken($token, $expiresAt);
+        $this->lastError = null;
     }
 
     /**
-     * Extrai o claim `exp` (timestamp Unix) do payload de um JWT, sem
-     * validar assinatura (só precisamos ler a data de expiração declarada;
-     * quem valida a assinatura de verdade é a própria API do Cartola quando
-     * a gente usa o token). Retorna null se o token não for um JWT
-     * reconhecível ou não tiver `exp`.
+     * Extracts the `exp` claim (Unix timestamp) from a JWT's payload,
+     * without validating the signature (we only need to read the declared
+     * expiration date; the Cartola API itself validates the signature when
+     * we actually use the token). Returns null if the token isn't a
+     * recognizable JWT or has no `exp`.
      */
-    private function extrairExpiracaoJwt(string $token): ?string
+    private function extractJwtExpiration(string $token): ?string
     {
-        $partes = explode('.', $token);
-        if (count($partes) !== 3) {
-            return null; // não é um JWT (ex: token opaco do fluxo antigo glbId)
+        $parts = explode('.', $token);
+        if (count($parts) !== 3) {
+            return null; // not a JWT (e.g. the old glbId opaque token)
         }
 
-        $payloadBase64 = strtr($partes[1], '-_', '+/');
+        $payloadBase64 = strtr($parts[1], '-_', '+/');
         $payloadJson = base64_decode(str_pad($payloadBase64, strlen($payloadBase64) % 4 === 0 ? strlen($payloadBase64) : strlen($payloadBase64) + (4 - strlen($payloadBase64) % 4), '='), true);
 
         if ($payloadJson === false) {
@@ -126,88 +127,88 @@ class CartolaAuthService
         return date('Y-m-d H:i:s', (int) $payload['exp']);
     }
 
-    /** Descarta o token atual (força um novo login/colagem na próxima chamada). */
-    public function invalidarToken(): void
+    /** Discards the current token (forces a new login/paste on the next call). */
+    public function invalidateToken(): void
     {
-        $this->limparTokenCache();
+        $this->clearCachedToken();
     }
 
     /**
-     * Estado atual do token pra exibir no admin: se existe, se ainda é
-     * válido, e quando foi salvo/expira.
+     * Current token state, for display in the admin panel: whether it
+     * exists, whether it's still valid, and when it was saved/expires.
      *
-     * @return array{presente:bool, valido:boolean, autenticado_em:?string, expira_em:?string, horas_restantes:?float}
+     * @return array{present:bool, valid:boolean, authenticated_at:?string, expires_at:?string, hours_remaining:?float}
      */
-    public function statusToken(): array
+    public function tokenStatus(): array
     {
         $pdo = Connection::get();
-        $stmt = $pdo->query('SELECT token, autenticado_em, expira_em FROM cartola_auth WHERE id = 1');
+        $stmt = $pdo->query('SELECT token, authenticated_at, expires_at FROM cartola_auth_token WHERE id = 1');
         $row = $stmt->fetch();
 
-        if (!$row || empty($row['token']) || empty($row['autenticado_em'])) {
+        if (!$row || empty($row['token']) || empty($row['authenticated_at'])) {
             return [
-                'presente' => false,
-                'valido' => false,
-                'autenticado_em' => null,
-                'expira_em' => null,
-                'horas_restantes' => null,
-                'expiracao_real' => false,
+                'present' => false,
+                'valid' => false,
+                'authenticated_at' => null,
+                'expires_at' => null,
+                'hours_remaining' => null,
+                'real_expiration' => false,
             ];
         }
 
-        $expiraEmTimestamp = $this->calcularExpiracao($row);
-        $horasRestantes = ($expiraEmTimestamp - time()) / 3600;
+        $expiresAtTimestamp = $this->computeExpiration($row);
+        $hoursRemaining = ($expiresAtTimestamp - time()) / 3600;
 
         return [
-            'presente' => true,
-            'valido' => time() < $expiraEmTimestamp,
-            'autenticado_em' => $row['autenticado_em'],
-            'expira_em' => date('Y-m-d H:i:s', $expiraEmTimestamp),
-            'horas_restantes' => round($horasRestantes, 1),
-            // true = veio do claim `exp` do JWT (data exata); false = estimativa de TOKEN_VALIDO_HORAS
-            'expiracao_real' => !empty($row['expira_em']),
+            'present' => true,
+            'valid' => time() < $expiresAtTimestamp,
+            'authenticated_at' => $row['authenticated_at'],
+            'expires_at' => date('Y-m-d H:i:s', $expiresAtTimestamp),
+            'hours_remaining' => round($hoursRemaining, 1),
+            // true = came from the JWT's `exp` claim (exact date); false = TOKEN_VALID_HOURS estimate
+            'real_expiration' => !empty($row['expires_at']),
         ];
     }
 
-    /** Calcula o timestamp de expiração: usa expira_em (real, do JWT) se disponível, senão o fallback de TOKEN_VALIDO_HORAS. */
-    private function calcularExpiracao(array $row): int
+    /** Computes the expiration timestamp: uses expires_at (real, from the JWT) if available, otherwise falls back to TOKEN_VALID_HOURS. */
+    private function computeExpiration(array $row): int
     {
-        if (!empty($row['expira_em'])) {
-            return (int) strtotime($row['expira_em']);
+        if (!empty($row['expires_at'])) {
+            return (int) strtotime($row['expires_at']);
         }
 
-        return (int) strtotime($row['autenticado_em']) + (self::TOKEN_VALIDO_HORAS * 3600);
+        return (int) strtotime($row['authenticated_at']) + (self::TOKEN_VALID_HOURS * 3600);
     }
 
-    private function lerTokenCache(): ?string
+    private function readCachedToken(): ?string
     {
         $pdo = Connection::get();
-        $stmt = $pdo->query('SELECT token, autenticado_em, expira_em FROM cartola_auth WHERE id = 1');
+        $stmt = $pdo->query('SELECT token, authenticated_at, expires_at FROM cartola_auth_token WHERE id = 1');
         $row = $stmt->fetch();
 
-        if (!$row || empty($row['token']) || empty($row['autenticado_em'])) {
+        if (!$row || empty($row['token']) || empty($row['authenticated_at'])) {
             return null;
         }
 
-        if (time() >= $this->calcularExpiracao($row)) {
+        if (time() >= $this->computeExpiration($row)) {
             return null;
         }
 
         return $row['token'];
     }
 
-    private function salvarTokenCache(string $token, ?string $expiraEm = null): void
+    private function saveCachedToken(string $token, ?string $expiresAt = null): void
     {
         $pdo = Connection::get();
         $stmt = $pdo->prepare('
-            UPDATE cartola_auth SET token = :token, autenticado_em = NOW(), expira_em = :expira_em WHERE id = 1
+            UPDATE cartola_auth_token SET token = :token, authenticated_at = NOW(), expires_at = :expires_at WHERE id = 1
         ');
-        $stmt->execute([':token' => $token, ':expira_em' => $expiraEm]);
+        $stmt->execute([':token' => $token, ':expires_at' => $expiresAt]);
     }
 
-    private function limparTokenCache(): void
+    private function clearCachedToken(): void
     {
         $pdo = Connection::get();
-        $pdo->exec('UPDATE cartola_auth SET token = NULL, autenticado_em = NULL, expira_em = NULL WHERE id = 1');
+        $pdo->exec('UPDATE cartola_auth_token SET token = NULL, authenticated_at = NULL, expires_at = NULL WHERE id = 1');
     }
 }
