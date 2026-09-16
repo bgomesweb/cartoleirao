@@ -1,7 +1,7 @@
 $(function () {
     const csrfToken = $('meta[name="csrf-token"]').attr('content');
 
-    // Toggle de pagamento
+    // Payment toggle
     $(document).on('click', '.btn-toggle-pago', function () {
         const $btn = $(this);
         const id = $btn.data('id');
@@ -11,7 +11,7 @@ $(function () {
         $.post('ajax_toggle_pago.php', { id: id, _csrf: csrfToken })
             .done(function (resp) {
                 if (resp.ok) {
-                    if (resp.pago) {
+                    if (resp.paid) {
                         $btn.removeClass('btn-outline-danger').addClass('btn-success').text('Pago ✓');
                     } else {
                         $btn.removeClass('btn-success').addClass('btn-outline-danger').text('Pendente');
@@ -28,12 +28,12 @@ $(function () {
             });
     });
 
-    // Abrir modal de vinculação e buscar candidatos na API do Cartola
-    let participanteIdAtual = null;
+    // Open the linking modal and search candidates in the Cartola API
+    let currentRegistrantId = null;
 
     $(document).on('click', '.btn-vincular', function () {
-        participanteIdAtual = $(this).data('id');
-        const nome = $(this).data('nome');
+        currentRegistrantId = $(this).data('id');
+        const name = $(this).data('nome');
 
         const modalEl = document.getElementById('modalVincular');
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -43,9 +43,9 @@ $(function () {
         );
         modal.show();
 
-        $.get('ajax_buscar_time.php', { nome: nome })
+        $.get('ajax_buscar_time.php', { nome: name })
             .done(function (resp) {
-                if (!resp.times || resp.times.length === 0) {
+                if (!resp.teams || resp.teams.length === 0) {
                     $('#vincular-resultados').html(
                         '<div class="alert alert-warning mb-0">Nenhum time encontrado na API do Cartola para esse nome.</div>'
                     );
@@ -53,14 +53,14 @@ $(function () {
                 }
 
                 let html = '<div class="list-group">';
-                resp.times.forEach(function (t) {
+                resp.teams.forEach(function (t) {
                     html += `
                         <button type="button" class="list-group-item list-group-item-action btn-selecionar-time"
-                                data-time-id="${t.time_id}"
-                                data-time-nome="${t.nome_cartola || t.nome}"
+                                data-time-id="${t.team_id}"
+                                data-time-nome="${t.cartola_name || t.name}"
                                 data-time-slug="${t.slug}">
-                            <strong>${t.nome_cartola || t.nome}</strong>
-                            <div class="small text-muted">${t.nome}</div>
+                            <strong>${t.cartola_name || t.name}</strong>
+                            <div class="small text-muted">${t.name}</div>
                         </button>`;
                 });
                 html += '</div>';
@@ -74,12 +74,12 @@ $(function () {
             });
     });
 
-    // Selecionar um dos times candidatos e efetivar a vinculação
+    // Pick one of the candidate teams and confirm the link
     $(document).on('click', '.btn-selecionar-time', function () {
         const $btn = $(this);
 
         $.post('ajax_vincular_time.php', {
-            id: participanteIdAtual,
+            id: currentRegistrantId,
             time_id: $btn.data('time-id'),
             time_nome: $btn.data('time-nome'),
             time_slug: $btn.data('time-slug'),

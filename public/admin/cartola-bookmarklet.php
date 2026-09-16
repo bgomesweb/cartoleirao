@@ -8,17 +8,18 @@ $appUrl = rtrim((string) (getenv('APP_URL') ?: ''), '/');
 $endpoint = $appUrl !== '' ? $appUrl . '/admin/receber-token.php' : null;
 $secret = getenv('CARTOLA_BOOKMARKLET_SECRET') ?: null;
 
-$tituloPagina = 'Bookmarklet — captura automática de token';
+$pageTitle = 'Bookmarklet — captura automática de token';
 require __DIR__ . '/includes/header.php';
 
 $bookmarkletHref = null;
 if ($secret && $endpoint) {
-    // JS "achatado" de propósito (bookmarklet vira uma URL javascript: só).
-    // O que ele faz: varre localStorage e sessionStorage da aba ATUAL
-    // (que precisa ser cartola.globo.com) procurando algo no formato de
-    // JWT — direto como valor, ou dentro de um JSON aninhado (é assim que
-    // libs tipo keycloak-js costumam persistir o access_token). Achando,
-    // manda pro nosso endpoint via fetch, junto com o segredo.
+    // JS deliberately minified/flattened (the bookmarklet turns into a
+    // single javascript: URL). What it does: scans localStorage and
+    // sessionStorage of the CURRENT tab (which needs to be
+    // cartola.globo.com) looking for something in JWT format — either
+    // directly as a value, or nested inside a JSON blob (that's how libs
+    // like keycloak-js usually persist the access_token). Once found, it
+    // sends it to our endpoint via fetch, along with the shared secret.
     $js = <<<JS
 (function(){var ENDPOINT="{$endpoint}";var SECRET="{$secret}";function isJwt(v){return typeof v==="string"&&/^[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}$/.test(v);}function walk(v,found,p){if(isJwt(v)){found.push({path:p,token:v});return;}if(typeof v==="string"){try{walk(JSON.parse(v),found,p);}catch(e){}return;}if(v&&typeof v==="object"){for(var k in v){if(Object.prototype.hasOwnProperty.call(v,k)){walk(v[k],found,p+"."+k);}}}}var found=[];[localStorage,sessionStorage].forEach(function(store,idx){var sn=idx===0?"localStorage":"sessionStorage";for(var i=0;i<store.length;i++){var key=store.key(i);walk(store.getItem(key),found,sn+"["+key+"]");}});if(found.length===0){alert("Nao encontrei nenhum token JWT salvo nesta pagina. Confirme que voce esta logado em cartola.globo.com e tente de novo.");return;}var chosen=found[0];if(found.length>1){var list=found.map(function(f,i){return i+": "+f.path;}).join("\\n");var idx2=prompt("Achei "+found.length+" candidatos a token. Digite o numero do que quer usar:\\n"+list,"0");if(idx2===null)return;chosen=found[parseInt(idx2,10)]||found[0];}fetch(ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json","X-Bookmarklet-Secret":SECRET},body:JSON.stringify({token:chosen.token})}).then(function(r){return r.json();}).then(function(data){alert(data.ok?"Token enviado com sucesso para o Cartoleirao!":"Erro: "+(data.erro||"desconhecido"));}).catch(function(err){alert("Falha ao enviar: "+err);});})();
 JS;

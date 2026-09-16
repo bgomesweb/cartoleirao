@@ -5,59 +5,59 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../src/Config/bootstrap.php';
 
 use Cartoleirao\Helpers\Csrf;
-use Cartoleirao\Models\Liga;
+use Cartoleirao\Models\League;
 use Cartoleirao\Services\CartolaAuthService;
-use Cartoleirao\Services\SincronizacaoService;
+use Cartoleirao\Services\SyncService;
 
 $auth = new CartolaAuthService();
 
-$mensagem = null;
-$erro = null;
-$resultadosTeste = null;
+$message = null;
+$error = null;
+$testResults = null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && Csrf::valido($_POST['_csrf'] ?? null)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && Csrf::isValid($_POST['_csrf'] ?? null)) {
     if (isset($_POST['salvar_token'])) {
-        $tokenColado = trim((string) ($_POST['token'] ?? ''));
+        $pastedToken = trim((string) ($_POST['token'] ?? ''));
 
         try {
-            $auth->salvarTokenManual($tokenColado);
-            $mensagem = 'Token salvo. A cron [sync_liga_oficial] vai usar esse token nas próximas '
-                . 'chamadas (se CARTOLA_LIGA_OFICIAL_HABILITADA=true estiver configurado no ambiente).';
+            $auth->saveManualToken($pastedToken);
+            $message = 'Token salvo. A cron [sync_official_league] vai usar esse token nas próximas '
+                . 'chamadas (se CARTOLA_OFFICIAL_LEAGUE_ENABLED=true estiver configurado no ambiente).';
         } catch (\InvalidArgumentException $e) {
-            $erro = 'Cole o token antes de salvar.';
+            $error = 'Cole o token antes de salvar.';
         }
     }
 
     if (isset($_POST['invalidar_token'])) {
-        $auth->invalidarToken();
-        $mensagem = 'Token removido. A próxima sincronização vai exigir um novo token colado aqui.';
+        $auth->invalidateToken();
+        $message = 'Token removido. A próxima sincronização vai exigir um novo token colado aqui.';
     }
 
     if (isset($_POST['testar_agora'])) {
-        $ligas = Liga::comSlugOficial();
+        $leagues = League::withCartolaLeagueSlug();
 
-        if (empty($ligas)) {
-            $erro = 'Nenhuma liga tem cartola_liga_slug configurado — não tem o que testar.';
+        if (empty($leagues)) {
+            $error = 'Nenhuma liga tem cartola_league_slug configurado — não tem o que testar.';
         } else {
-            $servico = new SincronizacaoService();
-            $resultadosTeste = [];
+            $service = new SyncService();
+            $testResults = [];
 
-            foreach ($ligas as $liga) {
-                $resultado = $servico->sincronizarTimesDaLigaOficial((int) $liga['id'], $liga['cartola_liga_slug'], null, $liga['tipo'] ?? 'classica');
-                $resultadosTeste[] = [
-                    'liga' => $liga['nome'],
-                    'resultado' => $resultado,
-                    'erro' => $resultado === null ? ($servico->getUltimoErroApi() ?? $auth->getUltimoErro()) : null,
+            foreach ($leagues as $league) {
+                $result = $service->syncOfficialLeagueTeams((int) $league['id'], $league['cartola_league_slug'], null, $league['type'] ?? 'classic');
+                $testResults[] = [
+                    'liga' => $league['name'],
+                    'resultado' => $result,
+                    'erro' => $result === null ? ($service->getLastApiError() ?? $auth->getLastError()) : null,
                 ];
             }
         }
     }
 }
 
-$status = $auth->statusToken();
-$loginHabilitado = (getenv('CARTOLA_LIGA_OFICIAL_HABILITADA') ?: 'false') === 'true';
+$status = $auth->tokenStatus();
+$loginEnabled = (getenv('CARTOLA_OFFICIAL_LEAGUE_ENABLED') ?: (getenv('CARTOLA_LIGA_OFICIAL_HABILITADA') ?: 'false')) === 'true';
 
-$tituloPagina = 'Login Globo/Cartola';
+$pageTitle = 'Login Globo/Cartola';
 require __DIR__ . '/includes/header.php';
 ?>
 
@@ -67,7 +67,7 @@ require __DIR__ . '/includes/header.php';
     O login automático da Globo (email/senha) sempre esbarra em captcha — não dá pra automatizar
     isso de forma legítima. O caminho que funciona: você loga <strong>normalmente no seu navegador</strong>
     (aí é um humano de verdade resolvendo o captcha), pega o token de sessão que a Globo gerou pra
-    você, e cola aqui. A partir daí, a cron <code>sync_liga_oficial</code> reaproveita esse token —
+    você, e cola aqui. A partir daí, a cron <code>sync_official_league</code> reaproveita esse token —
     sem precisar logar de novo — até ele expirar.
 </p>
 
@@ -77,11 +77,11 @@ require __DIR__ . '/includes/header.php';
     da aba do cartola.globo.com — sem abrir o DevTools.
 </div>
 
-<?php if ($mensagem): ?>
-    <div class="alert alert-success"><?= e($mensagem) ?></div>
+<?php if ($message): ?>
+    <div class="alert alert-success"><?= e($message) ?></div>
 <?php endif; ?>
-<?php if ($erro): ?>
-    <div class="alert alert-danger"><?= e($erro) ?></div>
+<?php if ($error): ?>
+    <div class="alert alert-danger"><?= e($error) ?></div>
 <?php endif; ?>
 
 <div class="row">
@@ -90,49 +90,49 @@ require __DIR__ . '/includes/header.php';
             <div class="card-body">
                 <h5 class="card-title">Status do token</h5>
 
-                <?php if (!$status['presente']): ?>
+                <?php if (!$status['present']): ?>
                     <div class="alert alert-warning small mb-3">
                         <i class="fa-solid fa-triangle-exclamation"></i> Nenhum token salvo ainda.
                     </div>
-                <?php elseif ($status['valido']): ?>
+                <?php elseif ($status['valid']): ?>
                     <div class="alert alert-success small mb-3">
                         <i class="fa-solid fa-circle-check"></i> Token válido — expira em
-                        <strong><?= e((string) $status['horas_restantes']) ?>h</strong>
-                        (<?= e((string) $status['expira_em']) ?>)<?= $status['expiracao_real'] ? '' : ' — estimativa' ?>.
-                        <?php if ($status['expiracao_real']): ?>
+                        <strong><?= e((string) $status['hours_remaining']) ?>h</strong>
+                        (<?= e((string) $status['expires_at']) ?>)<?= $status['real_expiration'] ? '' : ' — estimativa' ?>.
+                        <?php if ($status['real_expiration']): ?>
                             <div class="mt-1">Data lida direto do token (claim <code>exp</code>), não é chute.</div>
                         <?php endif; ?>
                     </div>
                 <?php else: ?>
                     <div class="alert alert-danger small mb-3">
                         <i class="fa-solid fa-circle-xmark"></i> Token expirou em
-                        <?= e((string) $status['expira_em']) ?>. Cole um novo abaixo.
+                        <?= e((string) $status['expires_at']) ?>. Cole um novo abaixo.
                     </div>
                 <?php endif; ?>
 
-                <?php if ($status['presente']): ?>
-                    <p class="text-muted small mb-1">Salvo em: <?= e((string) $status['autenticado_em']) ?></p>
+                <?php if ($status['present']): ?>
+                    <p class="text-muted small mb-1">Salvo em: <?= e((string) $status['authenticated_at']) ?></p>
                 <?php endif; ?>
 
                 <p class="small mb-2">
-                    Cron habilitada (<code>CARTOLA_LIGA_OFICIAL_HABILITADA</code>):
-                    <?php if ($loginHabilitado): ?>
+                    Cron habilitada (<code>CARTOLA_OFFICIAL_LEAGUE_ENABLED</code>):
+                    <?php if ($loginEnabled): ?>
                         <span class="badge badge-pago">sim</span>
                     <?php else: ?>
                         <span class="badge badge-pendente">não</span>
                     <?php endif; ?>
                 </p>
-                <?php if (!$loginHabilitado): ?>
+                <?php if (!$loginEnabled): ?>
                     <p class="text-muted small">
                         Mesmo com o token válido, a cron não roda essa parte enquanto
-                        <code>CARTOLA_LIGA_OFICIAL_HABILITADA</code> não estiver <code>true</code> no
+                        <code>CARTOLA_OFFICIAL_LEAGUE_ENABLED</code> não estiver <code>true</code> no
                         ambiente (variável de ambiente / docker-compose — isso não dá pra mudar por
                         aqui, é configuração de infraestrutura). Depois de colar um token válido, ative
                         essa variável e reinicie a cron.
                     </p>
                 <?php endif; ?>
 
-                <?php if ($status['presente']): ?>
+                <?php if ($status['present']): ?>
                     <form method="post" class="mt-3" onsubmit="return confirm('Remover o token salvo?');">
                         <?= Csrf::field() ?>
                         <button type="submit" name="invalidar_token" value="1" class="btn btn-sm btn-outline-danger">
@@ -141,7 +141,7 @@ require __DIR__ . '/includes/header.php';
                     </form>
                 <?php endif; ?>
 
-                <?php if ($status['presente'] && $status['valido']): ?>
+                <?php if ($status['present'] && $status['valid']): ?>
                     <form method="post" class="mt-2">
                         <?= Csrf::field() ?>
                         <button type="submit" name="testar_agora" value="1" class="btn btn-sm btn-outline-primary">
@@ -188,12 +188,12 @@ require __DIR__ . '/includes/header.php';
     </div>
 </div>
 
-<?php if ($resultadosTeste !== null): ?>
+<?php if ($testResults !== null): ?>
     <div class="card admin-sidebar-card mb-4">
         <div class="card-body">
             <h5 class="card-title">Resultado do teste</h5>
             <ul class="small mb-0">
-                <?php foreach ($resultadosTeste as $item): ?>
+                <?php foreach ($testResults as $item): ?>
                     <li class="mb-2">
                         <strong><?= e($item['liga']) ?></strong>:
                         <?php if ($item['resultado'] === null): ?>

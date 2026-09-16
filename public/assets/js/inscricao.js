@@ -12,22 +12,22 @@ $(function () {
     });
 
     $('#form-inscricao').on('submit', function (e) {
-        const nome = $('#nome').val().trim();
+        const name = $('#nome').val().trim();
         const email = $('#email').val().trim();
         const whatsapp = $('#whatsapp').val().replace(/\D/g, '');
 
-        let erro = '';
-        if (nome.length < 3) {
-            erro = 'Informe seu nome completo.';
+        let error = '';
+        if (name.length < 3) {
+            error = 'Informe seu nome completo.';
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            erro = 'Informe um e-mail válido.';
+            error = 'Informe um e-mail válido.';
         } else if (whatsapp.length < 10) {
-            erro = 'Informe um WhatsApp válido com DDD.';
+            error = 'Informe um WhatsApp válido com DDD.';
         }
 
-        if (erro) {
+        if (error) {
             e.preventDefault();
-            $('#erro-cliente').text(erro).removeClass('d-none');
+            $('#erro-cliente').text(error).removeClass('d-none');
             $('html, body').animate({ scrollTop: $('#erro-cliente').offset().top - 100 }, 300);
         }
     });

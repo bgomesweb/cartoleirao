@@ -1,87 +1,88 @@
 /**
- * Compartilhamento de tabelas/cards como IMAGEM no WhatsApp.
+ * Sharing tables/cards as an IMAGE on WhatsApp.
  *
- * Uso: um botão com os atributos abaixo dispara a captura do elemento alvo
- * (via html2canvas) e compartilha o resultado.
+ * Usage: a button with the attributes below triggers a capture of the
+ * target element (via html2canvas) and shares the result.
  *
- *   <button data-compartilhar-imagem="#seletor-do-card"
- *           data-arquivo="nome-do-arquivo">
+ *   <button data-compartilhar-imagem="#card-selector"
+ *           data-arquivo="file-name">
  *       Compartilhar
  *   </button>
  *
- * Fluxo:
- *  1. Em celulares (Web Share API com suporte a arquivo) abre a folha nativa
- *     de compartilhamento SÓ com o arquivo — sem título/texto junto, pra não
- *     virar um card de link/texto que esconde a imagem no WhatsApp.
- *  2. Em desktop (sem suporte a compartilhar arquivo) só baixa o PNG, pra o
- *     usuário anexar o arquivo manualmente na conversa.
+ * Flow:
+ *  1. On mobile (Web Share API with file support) opens the native share
+ *     sheet with ONLY the file — no title/text alongside it, so it doesn't
+ *     turn into a link/text card that hides the image in WhatsApp.
+ *  2. On desktop (no file-sharing support) it just downloads the PNG, so
+ *     the user can manually attach the file to the conversation.
  *
- * Por que compartilhar um PDF em vez do PNG direto:
- *  O PNG gerado já sai perfeito (dá pra conferir baixando o arquivo). O
- *  problema é que, quando uma imagem é enviada pelo WhatsApp como "foto", o
- *  próprio WhatsApp recomprime/redimensiona o arquivo — e como nossa tabela
- *  é bem alta (muitas linhas numa imagem só), essa recompressão amassa o
- *  conteúdo e sai ilegível. Enviando como "documento" (PDF de página única
- *  com a mesma imagem dentro) o WhatsApp NÃO recomprime, e o resultado chega
- *  idêntico ao PNG original — exatamente como no download.
- *  Único efeito colateral: quem recebe vê um ícone de documento/PDF em vez
- *  de a foto já aparecer em miniatura no chat, precisando abrir pra ver.
+ * Why share a PDF instead of the PNG directly:
+ *  The generated PNG already comes out perfect (you can check by
+ *  downloading the file). The problem is that, when an image is sent
+ *  through WhatsApp as a "photo", WhatsApp itself recompresses/resizes the
+ *  file — and since our table is quite tall (many rows in a single image),
+ *  that recompression crushes the content and it becomes illegible.
+ *  Sending it as a "document" (a single-page PDF with the same image
+ *  inside) means WhatsApp does NOT recompress it, and the result arrives
+ *  identical to the original PNG — exactly like the download.
+ *  Only side effect: the recipient sees a document/PDF icon instead of the
+ *  photo already showing as a thumbnail in the chat, needing to open it to see it.
  *
- * Importante: o card usa flexbox responsivo (as colunas quebram/empilham em
- * telas estreitas). Se capturássemos exatamente a largura real do celular,
- * cada linha "quebraria" em vários pedaços e a imagem saía espremida e
- * ilegível. Por isso a captura sempre simula uma janela larga (estilo
- * desktop) pro html2canvas, não importa o tamanho real da tela de quem tá
- * compartilhando.
+ * Important: the card uses responsive flexbox (columns wrap/stack on
+ * narrow screens). If we captured the actual width of the phone, each row
+ * would "wrap" into several pieces and the image would come out cramped
+ * and illegible. That's why the capture always simulates a wide window
+ * (desktop-style) for html2canvas, regardless of the actual screen size of
+ * whoever is sharing.
  */
 (function () {
     'use strict';
 
-    const LARGURA_CAPTURA = 960; // largura "virtual" usada pro layout não quebrar/empilhar
+    const CAPTURE_WIDTH = 960; // "virtual" width used so the layout doesn't wrap/stack
 
-    function comEstadoCarregando(botao, callback) {
-        if (!botao) return callback();
-        const htmlOriginal = botao.innerHTML;
-        const larguraOriginal = botao.style.minWidth;
-        botao.style.minWidth = botao.offsetWidth + 'px';
-        botao.disabled = true;
-        botao.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Gerando imagem...';
+    function withLoadingState(button, callback) {
+        if (!button) return callback();
+        const originalHtml = button.innerHTML;
+        const originalWidth = button.style.minWidth;
+        button.style.minWidth = button.offsetWidth + 'px';
+        button.disabled = true;
+        button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Gerando imagem...';
 
-        const restaurar = () => {
-            botao.disabled = false;
-            botao.innerHTML = htmlOriginal;
-            botao.style.minWidth = larguraOriginal;
+        const restore = () => {
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+            button.style.minWidth = originalWidth;
         };
 
-        Promise.resolve(callback()).finally(restaurar);
+        Promise.resolve(callback()).finally(restore);
     }
 
-    async function gerarCanvas(alvo, corFundo) {
-        const escala = Math.min(window.devicePixelRatio || 1, 2) * 1.6;
+    async function generateCanvas(target, backgroundColor) {
+        const scale = Math.min(window.devicePixelRatio || 1, 2) * 1.6;
 
-        // Enquanto captura, aplica a classe "modo-captura" (fontes/ícones
-        // maiores, só nessa cópia renderizada) pra imagem sair legível
-        // mesmo em telas pequenas de celular.
-        alvo.classList.add('modo-captura');
+        // While capturing, applies the "modo-captura" class (larger
+        // fonts/icons, only on this rendered copy) so the image comes out
+        // legible even on small phone screens.
+        target.classList.add('modo-captura');
 
         try {
-            // Simula uma janela larga (windowWidth) pra layout usar a versão
-            // "desktop" do card, sem os pontos/nomes empilhando em várias
-            // linhas como acontece na largura real de um celular.
-            return await html2canvas(alvo, {
-                backgroundColor: corFundo || '#ffffff',
-                scale: escala,
+            // Simulates a wide window (windowWidth) so the layout uses the
+            // "desktop" version of the card, without the points/names
+            // stacking into several lines like it does at a phone's real width.
+            return await html2canvas(target, {
+                backgroundColor: backgroundColor || '#ffffff',
+                scale: scale,
                 useCORS: true,
                 logging: false,
-                windowWidth: LARGURA_CAPTURA,
-                windowHeight: Math.max(window.innerHeight, alvo.scrollHeight + 200),
+                windowWidth: CAPTURE_WIDTH,
+                windowHeight: Math.max(window.innerHeight, target.scrollHeight + 200),
             });
         } finally {
-            alvo.classList.remove('modo-captura');
+            target.classList.remove('modo-captura');
         }
     }
 
-    function canvasParaBlobPng(canvas) {
+    function canvasToPngBlob(canvas) {
         return new Promise((resolve, reject) => {
             canvas.toBlob((blob) => {
                 if (blob) resolve(blob);
@@ -91,17 +92,17 @@
     }
 
     /**
-     * Embrulha o canvas num PDF de página única (mesmo tamanho da imagem,
-     * sem margens) pra poder compartilhar como "documento" — o WhatsApp não
-     * recomprime documentos, então a qualidade chega idêntica ao PNG.
+     * Wraps the canvas into a single-page PDF (same size as the image, no
+     * margins) so it can be shared as a "document" — WhatsApp doesn't
+     * recompress documents, so the quality arrives identical to the PNG.
      */
-    function canvasParaBlobPdf(canvas) {
+    function canvasToPdfBlob(canvas) {
         const { jsPDF } = window.jspdf || {};
         if (!jsPDF) return null;
 
-        const orientacao = canvas.width >= canvas.height ? 'l' : 'p';
+        const orientation = canvas.width >= canvas.height ? 'l' : 'p';
         const doc = new jsPDF({
-            orientation: orientacao,
+            orientation: orientation,
             unit: 'px',
             format: [canvas.width, canvas.height],
             compress: true,
@@ -113,89 +114,89 @@
         return doc.output('blob');
     }
 
-    function baixarArquivo(blob, nomeArquivo, extensao) {
+    function downloadFile(blob, fileName, extension) {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = nomeArquivo + '.' + extensao;
+        link.download = fileName + '.' + extension;
         document.body.appendChild(link);
         link.click();
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
 
-    async function compartilharComoImagem(seletorAlvo, opcoes) {
-        const alvo = document.querySelector(seletorAlvo);
-        if (!alvo) {
-            console.error('Elemento alvo não encontrado para compartilhar:', seletorAlvo);
+    async function shareAsImage(targetSelector, options) {
+        const target = document.querySelector(targetSelector);
+        if (!target) {
+            console.error('Elemento alvo não encontrado para compartilhar:', targetSelector);
             return;
         }
 
-        const nomeArquivo = opcoes.arquivo || 'cartoleirao';
+        const fileName = options.arquivo || 'cartoleirao';
 
         let canvas;
         try {
-            canvas = await gerarCanvas(alvo, opcoes.corFundo);
-        } catch (erro) {
-            console.error(erro);
+            canvas = await generateCanvas(target, options.corFundo);
+        } catch (error) {
+            console.error(error);
             alert('Não foi possível gerar a imagem agora. Tente novamente.');
             return;
         }
 
-        // Pro WhatsApp: tenta compartilhar como PDF (documento, sem
-        // recompressão). Só a imagem, sem título/texto — evita que o
-        // WhatsApp monte um card de texto/link por cima do arquivo.
-        const blobPdf = canvasParaBlobPdf(canvas);
-        if (blobPdf) {
-            const arquivoPdf = new File([blobPdf], nomeArquivo + '.pdf', { type: 'application/pdf' });
-            if (navigator.canShare && navigator.canShare({ files: [arquivoPdf] })) {
+        // For WhatsApp: tries to share as a PDF (document, no
+        // recompression). Just the image, no title/text — avoids WhatsApp
+        // building a text/link card on top of the file.
+        const pdfBlob = canvasToPdfBlob(canvas);
+        if (pdfBlob) {
+            const pdfFile = new File([pdfBlob], fileName + '.pdf', { type: 'application/pdf' });
+            if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
                 try {
-                    await navigator.share({ files: [arquivoPdf] });
+                    await navigator.share({ files: [pdfFile] });
                     return;
-                } catch (erro) {
-                    if (erro && erro.name === 'AbortError') return; // usuário cancelou
-                    // sem suporte real apesar do canShare: cai no fallback abaixo
+                } catch (error) {
+                    if (error && error.name === 'AbortError') return; // user cancelled
+                    // no real support despite canShare: falls through to the fallback below
                 }
             }
         }
 
-        // Fallback: gera o PNG (mesma imagem, sem conversão) — usado quando
-        // o navegador não sabe compartilhar arquivo (principalmente
-        // desktop), ou não tem suporte a gerar o PDF.
-        let blobPng;
+        // Fallback: generates the PNG (same image, no conversion) — used
+        // when the browser can't share a file (mostly desktop), or has no
+        // support for generating the PDF.
+        let pngBlob;
         try {
-            blobPng = await canvasParaBlobPng(canvas);
-        } catch (erro) {
-            console.error(erro);
+            pngBlob = await canvasToPngBlob(canvas);
+        } catch (error) {
+            console.error(error);
             alert('Não foi possível gerar a imagem agora. Tente novamente.');
             return;
         }
 
-        const arquivoPng = new File([blobPng], nomeArquivo + '.png', { type: 'image/png' });
-        if (!blobPdf && navigator.canShare && navigator.canShare({ files: [arquivoPng] })) {
+        const pngFile = new File([pngBlob], fileName + '.png', { type: 'image/png' });
+        if (!pdfBlob && navigator.canShare && navigator.canShare({ files: [pngFile] })) {
             try {
-                await navigator.share({ files: [arquivoPng] });
+                await navigator.share({ files: [pngFile] });
                 return;
-            } catch (erro) {
-                if (erro && erro.name === 'AbortError') return;
+            } catch (error) {
+                if (error && error.name === 'AbortError') return;
             }
         }
 
-        baixarArquivo(blobPng, nomeArquivo, 'png');
+        downloadFile(pngBlob, fileName, 'png');
         window.setTimeout(() => {
             alert('Imagem baixada! Anexe o arquivo na conversa do WhatsApp.');
         }, 300);
     }
 
-    document.addEventListener('click', function (evento) {
-        const botao = evento.target.closest('[data-compartilhar-imagem]');
-        if (!botao) return;
-        evento.preventDefault();
+    document.addEventListener('click', function (event) {
+        const button = event.target.closest('[data-compartilhar-imagem]');
+        if (!button) return;
+        event.preventDefault();
 
-        comEstadoCarregando(botao, () =>
-            compartilharComoImagem(botao.getAttribute('data-compartilhar-imagem'), {
-                arquivo: botao.getAttribute('data-arquivo'),
-                corFundo: botao.getAttribute('data-bg'),
+        withLoadingState(button, () =>
+            shareAsImage(button.getAttribute('data-compartilhar-imagem'), {
+                arquivo: button.getAttribute('data-arquivo'),
+                corFundo: button.getAttribute('data-bg'),
             })
         );
     });

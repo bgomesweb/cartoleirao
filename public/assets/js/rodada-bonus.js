@@ -4,18 +4,18 @@ $(function () {
         return;
     }
 
-    var rodada = modalEl.getAttribute('data-rodada-bonus');
-    var chave = 'cartoleirao_bonus_modal_rodada_' + rodada;
+    var round = modalEl.getAttribute('data-rodada-bonus');
+    var key = 'cartoleirao_bonus_modal_rodada_' + round;
 
-    // Mostra só uma vez por sessão do navegador pra não ficar chato
-    // navegando entre as páginas do site enquanto a rodada bônus estiver ativa.
+    // Shows only once per browser session so it doesn't get annoying while
+    // navigating between the site's pages while the bonus round is active.
     try {
-        if (sessionStorage.getItem(chave)) {
+        if (sessionStorage.getItem(key)) {
             return;
         }
-        sessionStorage.setItem(chave, '1');
+        sessionStorage.setItem(key, '1');
     } catch (e) {
-        // Se o navegador bloquear sessionStorage (modo privado etc.), mostra mesmo assim.
+        // If the browser blocks sessionStorage (private mode etc.), show it anyway.
     }
 
     var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
