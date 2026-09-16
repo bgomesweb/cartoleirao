@@ -1,5 +1,8 @@
 /vendor/
 /config.local.php
+/config.local.php.*
+!/config.local.php.example
+/.env
 /.idea/
 *.log
 error_log
