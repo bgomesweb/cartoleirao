@@ -19,9 +19,9 @@ $market = MarketStatus::current();
     <meta name="csrf-token" content="<?= Csrf::token() ?>">
     <title>Admin — Cartoleirão</title>
     <link rel="icon" type="image/png" href="../assets/img/favicon.png">
-    <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=<?= @filemtime(__DIR__ . '/../../assets/css/style.css') ?: time() ?>">
 </head>
 <body class="admin-body">
 <nav class="navbar navbar-cartoleirao navbar-expand-lg mb-4">
