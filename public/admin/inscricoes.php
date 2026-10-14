@@ -12,99 +12,123 @@ $selectedLeagueId = (int) ($_GET['liga_id'] ?? ($leagues[0]['id'] ?? 0));
 $paidFilter = $_GET['pago'] ?? null;
 
 $registrants = $selectedLeagueId ? Registrant::findByLeague($selectedLeagueId, $paidFilter) : [];
+$counters = $selectedLeagueId ? Registrant::counters($selectedLeagueId) : ['total' => 0, 'paid' => 0, 'pending' => 0, 'linked' => 0];
+
+$fmt = static fn (?string $d): string => $d ? (new DateTime($d))->format('d/m/Y H:i') : '—';
+$initial = static fn (string $n): string => mb_strtoupper(mb_substr(trim($n), 0, 1)) ?: '?';
+$filterUrl = static fn (?string $f): string => '?liga_id=' . $selectedLeagueId . ($f ? '&pago=' . $f : '');
+
+$pageTitle = 'Inscrições';
+$pageSubtitle = 'Gerencie pagamentos, vínculos com o Cartola e observações';
 
 require __DIR__ . '/includes/header.php';
 ?>
 
-<h2 class="page-title mb-4"><i class="fa-solid fa-clipboard-list"></i> Inscrições</h2>
-
-<form method="get" class="row g-2 mb-4">
-    <div class="col-auto">
-        <select name="liga_id" class="form-select" onchange="this.form.submit()">
+<div class="toolbar">
+    <form method="get" class="d-flex gap-2">
+        <?php if ($paidFilter): ?><input type="hidden" name="pago" value="<?= e($paidFilter) ?>"><?php endif; ?>
+        <select name="liga_id" class="form-select" onchange="this.form.submit()" aria-label="Liga">
             <?php foreach ($leagues as $league): ?>
                 <option value="<?= (int) $league['id'] ?>" <?= $selectedLeagueId === (int) $league['id'] ? 'selected' : '' ?>>
                     <?= e($league['name']) ?>
                 </option>
             <?php endforeach; ?>
         </select>
-    </div>
-    <div class="col-auto">
-        <select name="pago" class="form-select" onchange="this.form.submit()">
-            <option value="">Todos os status</option>
-            <option value="paid" <?= $paidFilter === 'paid' ? 'selected' : '' ?>>Pagos</option>
-            <option value="pending" <?= $paidFilter === 'pending' ? 'selected' : '' ?>>Pendentes</option>
-        </select>
-    </div>
-</form>
+    </form>
 
-<div class="table-responsive">
-    <table class="table table-hover align-middle bg-white table-admin">
-        <thead>
-        <tr>
-            <th>Nome</th>
-            <th>E-mail</th>
-            <th>WhatsApp</th>
-            <th>Time no Cartola</th>
-            <th>Vinculação</th>
-            <th>Pagamento</th>
-            <th>Inscrito em</th>
-            <th>Pago em</th>
-            <th>Observações</th>
-        </tr>
-        </thead>
-        <tbody>
-        <?php if (empty($registrants)): ?>
-            <tr><td colspan="9" class="text-center text-muted py-4">Nenhuma inscrição encontrada.</td></tr>
-        <?php endif; ?>
+    <div class="segmented" role="group" aria-label="Filtro de pagamento">
+        <a href="<?= e($filterUrl(null)) ?>" class="<?= !$paidFilter ? 'active' : '' ?>">Todos <?= (int) $counters['total'] ?></a>
+        <a href="<?= e($filterUrl('paid')) ?>" class="<?= $paidFilter === 'paid' ? 'active' : '' ?>">Pagos <?= (int) $counters['paid'] ?></a>
+        <a href="<?= e($filterUrl('pending')) ?>" class="<?= $paidFilter === 'pending' ? 'active' : '' ?>">Pendentes <?= (int) $counters['pending'] ?></a>
+    </div>
 
-        <?php foreach ($registrants as $r): ?>
-            <tr data-id="<?= (int) $r['id'] ?>">
-                <td><?= e($r['name']) ?></td>
-                <td><?= e($r['email']) ?></td>
-                <td>
-                    <a href="https://wa.me/55<?= e($r['whatsapp']) ?>" target="_blank" rel="noopener">
-                        <?= e($r['whatsapp']) ?>
-                    </a>
-                </td>
-                <td><?= e($r['cartola_team_name'] ?? '—') ?></td>
-                <td>
-                    <?php if ($r['linked_to_api']): ?>
-                        <span class="badge badge-vinculado">Vinculado</span>
-                    <?php else: ?>
-                        <span class="badge badge-nao-vinculado">Não vinculado</span>
-                        <?php if (!empty($r['cartola_team_name'])): ?>
-                            <button type="button" class="btn btn-sm btn-outline-primary btn-vincular"
-                                    data-id="<?= (int) $r['id'] ?>"
-                                    data-nome="<?= e($r['cartola_team_name']) ?>">
-                                Vincular
-                            </button>
-                        <?php endif; ?>
-                    <?php endif; ?>
-                </td>
-                <td>
-                    <button type="button"
-                            class="btn btn-sm <?= $r['paid'] ? 'btn-success' : 'btn-outline-danger' ?> btn-toggle-pago"
-                            data-id="<?= (int) $r['id'] ?>">
-                        <?= $r['paid'] ? 'Pago ✓' : 'Pendente' ?>
-                    </button>
-                </td>
-                <td><?= (new DateTime($r['created_at']))->format('d/m/Y H:i') ?></td>
-                <td class="paid-at"><?= !empty($r['paid_at']) ? (new DateTime($r['paid_at']))->format('d/m/Y H:i') : '—' ?></td>
-                <td>
-                    <input type="text" class="form-control form-control-sm input-observacao"
-                           maxlength="255" style="min-width:200px"
-                           data-id="<?= (int) $r['id'] ?>" data-original="<?= e($r['notes'] ?? '') ?>"
-                           value="<?= e($r['notes'] ?? '') ?>">
-                </td>
-            </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table>
+    <div class="search ms-auto">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" id="filtro-busca" class="form-control" placeholder="Buscar por nome, e-mail ou time…" autocomplete="off">
+    </div>
 </div>
 
-<!-- Modal de vinculação manual com a API do Cartola -->
+<div class="panel">
+    <div class="table-wrap">
+        <table class="data-table" id="tabela-inscricoes">
+            <thead>
+            <tr>
+                <th>Participante</th>
+                <th>Contato</th>
+                <th>Time no Cartola</th>
+                <th>Pagamento</th>
+                <th>Datas</th>
+                <th>Observações</th>
+            </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($registrants as $r): ?>
+                <tr data-id="<?= (int) $r['id'] ?>">
+                    <td>
+                        <div class="cell-person">
+                            <span class="avatar"><?= e($initial($r['name'])) ?></span>
+                            <div>
+                                <div class="fw-semibold"><?= e($r['name']) ?></div>
+                                <div class="cell-sub"><?= e($r['email']) ?></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="nowrap">
+                        <a href="https://wa.me/55<?= e(preg_replace('/\D+/', '', $r['whatsapp'])) ?>" target="_blank" rel="noopener">
+                            <i class="fa-brands fa-whatsapp text-success"></i> <?= e($r['whatsapp']) ?>
+                        </a>
+                    </td>
+                    <td>
+                        <div><?= e($r['cartola_team_name'] ?? '—') ?></div>
+                        <div class="mt-1">
+                            <?php if ($r['linked_to_api']): ?>
+                                <span class="chip chip-blue"><i class="fa-solid fa-link"></i> Vinculado</span>
+                            <?php else: ?>
+                                <span class="chip">Não vinculado</span>
+                                <?php if (!empty($r['cartola_team_name'])): ?>
+                                    <button type="button" class="btn btn-sm btn-soft btn-vincular"
+                                            data-id="<?= (int) $r['id'] ?>"
+                                            data-nome="<?= e($r['cartola_team_name']) ?>">
+                                        Vincular
+                                    </button>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
+                    </td>
+                    <td>
+                        <button type="button"
+                                class="btn-pay <?= $r['paid'] ? 'is-paid' : 'is-pending' ?> btn-toggle-pago"
+                                data-id="<?= (int) $r['id'] ?>"
+                                title="Clique para alternar o status de pagamento">
+                            <?= $r['paid'] ? 'Pago ✓' : 'Pendente' ?>
+                        </button>
+                    </td>
+                    <td class="nowrap">
+                        <div class="cell-sub">Inscrito em</div>
+                        <div><?= e($fmt($r['created_at'])) ?></div>
+                        <div class="cell-sub mt-1">Pago em</div>
+                        <div class="paid-at"><?= e($fmt($r['paid_at'] ?? null)) ?></div>
+                    </td>
+                    <td style="min-width: 220px;">
+                        <input type="text" class="form-control form-control-sm input-observacao"
+                               maxlength="255" placeholder="Adicionar observação…"
+                               data-id="<?= (int) $r['id'] ?>" data-original="<?= e($r['notes'] ?? '') ?>"
+                               value="<?= e($r['notes'] ?? '') ?>">
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <div class="empty-state" id="vazio-inscricoes" <?= empty($registrants) ? '' : 'hidden' ?>>
+        <i class="fa-regular fa-folder-open"></i>
+        <span id="vazio-texto"><?= empty($registrants) ? 'Nenhuma inscrição encontrada.' : 'Nenhum resultado para a busca.' ?></span>
+    </div>
+</div>
+
+<!-- Modal de vinculação manual com a API do Cartola FC -->
 <div class="modal fade" id="modalVincular" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Vincular time do Cartola</h5>

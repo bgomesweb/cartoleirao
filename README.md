@@ -169,37 +169,13 @@ de chave para os endpoints de leitura usados aqui).
   (clubes → rodada atual → jogos → pontuação), grava log em `sync_log`
 - `cron/sync_games.php` — roda a cada 10 min (via `cron/scheduler.php`):
   sincroniza clubes (se necessário) e os jogos da rodada atual
-- `cron/sync_scores.php` — roda a cada 15 min: para cada time da liga oficial
-  cadastrado (`official_league_teams`), busca a pontuação da rodada atual e
+- `cron/sync_scores.php` — roda a cada 15 min: atualiza o elenco a partir dos
+  inscritos vinculados e, para cada time (`official_league_teams`), busca a pontuação da rodada atual e
   grava em `scores`
-- `cron/sync_official_league.php` — roda a cada 20 min (via `cron/scheduler.php`
-  local, ou cron real no cPanel): sincroniza a(s) liga(s) com
-  `cartola_league_slug` configurado, incluindo ligas "Pontos Corridos" (ex:
-  Glória Eterna). Só faz algo se `CARTOLA_OFFICIAL_LEAGUE_ENABLED=true` **e**
-  houver um token válido em cache (colado em `admin/cartola-login.php`); sem
-  isso, só loga e sai sem erro. O login automático por e-mail/senha continua
-  batendo em captcha — o token precisa ser colado manualmente de vez em
-  quando (dura só algumas horas), mas a partir daí essa cron mantém tudo
-  sincronizado sozinha até ele expirar
 
-> Participantes sem o time vinculado (nome não informado, ou nome ambíguo que
-> não bateu automático) não são sincronizados — vincule manualmente em
-> `admin/inscricoes.php` pra que a pontuação comece a entrar.
-
-### Páginas públicas
-
-- `index.php` — Home: banner, quadro de premiação (lido de `league_settings`),
-  destaques da rodada (top 8 da liga clássica na última rodada com pontuação)
-- `jogos.php` — jogos de qualquer rodada já sincronizada (seletor de rodada) +
-  botão "Compartilhar rodada" que monta o texto e abre o WhatsApp
-- `classificacao.php` — ranking por liga, com abas "Geral" (acumulado) e
-  "Por rodada", incluindo:
-  - **Variação de posição** (▲ subiu / ▼ desceu / − manteve / "novo" se não
-    havia dado anterior pra comparar), sempre contra a última rodada anterior
-    que já tinha pontuação registrada
-  - **Botões de compartilhar no WhatsApp** (rodada e geral, independente de
-    qual aba está selecionada na tela) — o texto inclui nome do time no
-    Cartola e pontuação de cada participante
+O elenco do ranking (`official_league_teams`) é montado automaticamente a partir
+dos inscritos vinculados a um time do Cartola pela API pública — não há mais
+importação de JSON nem login na Globo.
 
 ### Identidade visual
 
@@ -212,7 +188,6 @@ Cores extraídas do logo (`public/assets/img/logo.png`): azul marinho
 ```bash
 docker compose exec app php cron/sync_games.php
 docker compose exec app php cron/sync_scores.php
-docker compose exec app php cron/sync_official_league.php
 ```
 
 ### Diagnóstico de conectividade com a API do Cartola
@@ -224,98 +199,20 @@ egress de internet do container, SSL, ou resposta da própria API):
 docker compose exec app php scripts/test_cartola_connection.php
 ```
 
-### Arquitetura: inscrição (pagamento) ≠ ranking (times da liga oficial)
+### Arquitetura: inscrição e ranking
 
-Duas coisas completamente desacopladas, de propósito:
+1. **Inscrição** (`registrants`): quem se cadastrou, se pagou (com data/hora do
+   pagamento) e observações do admin (`admin/inscricoes.php`).
+2. **Ranking/pontuação** (`official_league_teams` + `scores`): vem dos
+   inscritos **vinculados a um time do Cartola**. O vínculo é automático quando
+   a busca pública por nome (`/times?q=`) retorna um único resultado, ou manual
+   pelo botão "Vincular" em `admin/inscricoes.php`. A cada vínculo (e a cada
+   execução de `cron/sync_scores.php`) o elenco do ranking é atualizado e a
+   pontuação das rodadas entra pelo endpoint público `/time/id/{id}/{rodada}`.
 
-1. **Inscrição** (`registrants`): só controla quem se cadastrou e se pagou
-   (`admin/inscricoes.php`, toggle pago/pendente). Não precisa de nome de
-   time nem de nada relacionado ao Cartola pra existir.
-2. **Ranking/pontuação** (`official_league_teams` + `scores`): vem de TODOS
-   os times que estão de fato na liga oficial do Cartola, independente de
-   alguém ter feito a inscrição. `classificacao.php`, `index.php` (destaques)
-   e o compartilhamento no WhatsApp mostram todo mundo que está jogando.
-
-O cruzamento entre as duas (pra saber quem pagou) é opcional e feito em
-`admin/liga-oficial.php`: `official_league_teams.registrant_id` aponta pro
-participante correspondente, quando existir — usado só pra exibir o nome/
-badge de pago junto do time na classificação.
-
-### Como popular `official_league_teams` (roster completo da liga)
-
-O único endpoint que lista todos os times de uma liga (`auth/liga/{slug}`)
-exige login — e **testamos em produção: a Globo responde `captchaBlank`**,
-ou seja, exige resolver captcha, o que não dá pra automatizar de forma
-legítima. A solução: você mesmo, autenticado normalmente no navegador (onde
-o captcha não é um problema, porque é um humano de verdade), pega o JSON
-uma vez e cola no admin:
-
-1. Login em [cartola.globo.com](https://cartola.globo.com) no seu navegador
-2. Abra sua liga, DevTools (F12) → aba **Network**
-3. Recarregue a página, ache a chamada pra `auth/liga/{slug}`
-4. Copie o JSON da resposta e cole em `admin/liga-oficial.php` → "Importar times"
-
-Isso popula `official_league_teams` com o `time_id` real de cada time.
-
-**Formato real confirmado em produção** (liga de pontos corridos):
-
-```json
-{
-    "participantes": {
-        "13908998": {
-            "time_id": 13908998,
-            "nome": "Hasdrubal FC",
-            "nome_cartola": "Bruno Gomes",
-            "url_escudo_svg": "https://..."
-        }
-    },
-    "confrontos": {
-        "1": [
-            {
-                "mandante": {"id": 13908998, "pontuacao_rodada": 61.0},
-                "visitante": {"id": 117113, "pontuacao_rodada": 72.86}
-            }
-        ]
-    },
-    "ranking": [ {"time_id": 13908998, "pontos_cartola": 1536.87, "...": "..."} ]
-}
-```
-
-⚠️ **Detalhe não-óbvio:** `nome` é o **nome do time** (ex: "Hasdrubal FC") e
-`nome_cartola` é o nome do **dono/cartoleiro** (ex: "Bruno Gomes") — invertido
-do que o nome do campo sugere. O código já trata isso certo (mostra o nome do
-time em toda a interface).
-
-**Bônus 2:** o array `ranking` já traz a tabela oficial pronta (posição,
-variação, vitórias/empates/derrotas, pontos de tabela e pontuação acumulada
-do Cartola) — é exatamente a "Tabela de Resultados" que aparece no site do
-Cartola. O import grava esse snapshot em `official_league_teams` (colunas
-`standing_*`), e `classificacao.php` exibe automaticamente esse layout (com
-badge "PRO" pra assinantes) quando a liga é do tipo `round_robin`. Ligas
-`classic` continuam com o layout genérico (Geral / Por rodada).
-
-Pra rodadas novas que ainda não estavam no JSON quando você importou, **a
-partir daí a pontuação entra sozinha via endpoint público**
-(`/time/id/{id}/{rodada}`, sem precisar de login nenhum) — só o passo de
-descobrir "quem são os times" (e o histórico/tabela de pontos corridos, se
-houver) exige esse import manual ocasional. Repita o import quando: entrar
-gente nova na liga oficial, quiser atualizar o histórico completo, ou
-atualizar a Tabela de Resultados pra refletir a rodada mais recente.
-
-> A liga "clássica" pode ter um formato de resposta diferente (sem
-> `confrontos`/`ranking` no mesmo formato, já que não tem confronto interno
-> par-a-par) — ainda não testamos essa em produção. Se o import falhar ou
-> vier vazio pra ela, me manda o JSON que eu ajusto o código.
-
-O login automático (`CartolaAuthService`, `CARTOLA_OFFICIAL_LEAGUE_ENABLED`)
-continua no código, desabilitado por padrão, documentado caso a Globo mude
-esse fluxo no futuro — mas não conte com ele.
-
-### Vinculação automática/manual por nome (legado, ainda funciona)
-
-Se alguém informar o nome do time na inscrição, o sistema ainda tenta casar
-automático via busca pública (`/times?q=`) — é um bônus, não é mais
-necessário pro ranking funcionar (isso já vem de `official_league_teams`).
+Na liga de pontos corridos (Glória Eterna) a classificação é por pontos
+acumulados; a "Tabela de Resultados" com V/E/D só aparece se houver um snapshot
+oficial gravado (`standing_*`), o que não é mais populado automaticamente.
 
 ## Novidades: badge de mercado, premiação estruturada, admin e inscrição redesenhados
 

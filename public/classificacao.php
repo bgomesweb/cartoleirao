@@ -77,7 +77,13 @@ foreach ($leagues as $league) {
     }
 }
 
-$isRoundRobin = $currentLeague && $currentLeague['type'] === 'round_robin';
+// The official "Tabela de Resultados" (W/D/L) needs a standings snapshot; without
+// it (rosters are now built from linked registrants) falls back to the points ranking.
+$isRoundRobin = false;
+if ($currentLeague && $currentLeague['type'] === 'round_robin') {
+    $snapshot = OfficialLeagueTeam::byLeagueOrderedByStanding($leagueId);
+    $isRoundRobin = !empty($snapshot) && $snapshot[0]['standing_position'] !== null;
+}
 
 $pageTitle = 'Classificação';
 require __DIR__ . '/includes/header.php';
@@ -116,8 +122,7 @@ if ($isRoundRobin):
 
         <?php if (empty($standings) || $standings[0]['standing_position'] === null): ?>
             <p class="text-center text-muted">
-                Ainda não há tabela importada pra essa liga. O organizador precisa
-                importar o JSON da liga oficial em <code>admin/liga-oficial.php</code> primeiro.
+                Ainda não há tabela para essa liga.
             </p>
         <?php else: ?>
             <div id="captura-tabela-pc" class="captura-card">
@@ -357,9 +362,6 @@ else:
         <?php if (empty($ranking) && Score::roundNumbersWithData($leagueId) === []): ?>
             <p class="text-center text-muted">
                 Ainda não há times/pontuação cadastrados pra essa liga.
-                <?php if (!empty($currentLeague['cartola_league_slug'])): ?>
-                    O organizador precisa importar a lista de times em <code>admin/liga-oficial.php</code> primeiro.
-                <?php endif; ?>
             </p>
         <?php elseif ($mode === 'rodada' && empty($rounds)): ?>
             <div class="alert alert-info text-center">Ainda não há rodadas sincronizadas.</div>

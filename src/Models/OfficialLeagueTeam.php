@@ -43,6 +43,42 @@ class OfficialLeagueTeam
     }
 
     /**
+     * Keeps the ranking roster in sync with the registrants linked to a
+     * Cartola team through the public API (the only roster source now).
+     * Idempotent: creates the missing teams and refreshes name/owner/link.
+     */
+    public static function syncFromRegistrants(?int $leagueId = null): int
+    {
+        $pdo = Connection::get();
+        $sql = 'SELECT id, league_id, name, cartola_team_id, cartola_team_name, cartola_team_slug
+                FROM registrants
+                WHERE active = 1 AND linked_to_api = 1 AND cartola_team_id IS NOT NULL';
+        $params = [];
+        if ($leagueId !== null) {
+            $sql .= ' AND league_id = ?';
+            $params[] = $leagueId;
+        }
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+
+        $total = 0;
+        foreach ($stmt->fetchAll() as $r) {
+            self::upsert(
+                (int) $r['league_id'],
+                (int) $r['cartola_team_id'],
+                $r['cartola_team_name'],
+                $r['cartola_team_slug'],
+                null,
+                (int) $r['id'],
+                $r['name']
+            );
+            $total++;
+        }
+
+        return $total;
+    }
+
+    /**
      * Saves the official round-robin standings snapshot (position, change,
      * W/D/L, table points, accumulated Cartola score) — comes from the
      * `ranking` array of the league response, refreshed on every import.

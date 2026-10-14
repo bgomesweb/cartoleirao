@@ -27,71 +27,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Csrf::isValid($_POST['_csrf'] ?? nu
     }
 }
 
-$pageTitle = 'Configurações — Minha conta';
+$pageTitle = 'Minha conta';
+$pageSubtitle = 'Altere a senha de acesso ao painel';
 require __DIR__ . '/includes/header.php';
 ?>
 
-<h2 class="page-title mb-4"><i class="fa-solid fa-gear"></i> Configurações — Minha conta</h2>
-
 <?php if ($message): ?>
-    <div class="alert alert-success"><?= e($message) ?></div>
+    <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> <?= e($message) ?></div>
 <?php endif; ?>
 <?php if ($error): ?>
-    <div class="alert alert-danger"><?= e($error) ?></div>
+    <div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> <?= e($error) ?></div>
 <?php endif; ?>
 
-<div class="row">
-    <div class="col-md-6">
-        <div class="card admin-sidebar-card">
-            <div class="card-body">
-                <h5 class="card-title mb-3">Alterar senha</h5>
-                <p class="text-muted small">
-                    Usuário atual: <strong><?= e(AdminAuth::currentUsername() ?? '') ?></strong>
-                </p>
-
-                <form method="post">
-                    <?= Csrf::field() ?>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Senha atual</label>
-                        <input type="password" class="form-control" name="senha_atual" required autocomplete="current-password">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Nova senha</label>
-                        <input type="password" class="form-control" name="nova_senha" required minlength="8" autocomplete="new-password">
-                        <div class="form-text">Mínimo de 8 caracteres.</div>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="form-label fw-semibold">Confirmar nova senha</label>
-                        <input type="password" class="form-control" name="confirmar_senha" required minlength="8" autocomplete="new-password">
-                    </div>
-
-                    <button type="submit" class="btn btn-cartoleirao w-100">
-                        <i class="fa-solid fa-floppy-disk"></i> Salvar nova senha
-                    </button>
-                </form>
-            </div>
-        </div>
+<div class="panel" style="max-width: 520px;">
+    <div class="panel-head">
+        <h3><i class="fa-solid fa-key"></i> Alterar senha</h3>
     </div>
+    <div class="panel-body">
+        <p class="text-muted small">
+            Usuário atual: <strong class="text-body"><?= e(AdminAuth::currentUsername() ?? '') ?></strong>
+        </p>
 
-    <div class="col-md-6">
-        <div class="card admin-sidebar-card">
-            <div class="card-body">
-                <h5 class="card-title mb-3">Outras configurações</h5>
-                <p class="text-muted small mb-4">
-                    Autenticação com o Cartola FC (necessária só pra sincronizar a lista de times da
-                    liga oficial — pontuação e jogos funcionam sem isso).
-                </p>
-                <a href="cartola-login.php" class="btn btn-outline-navy w-100 mb-2">
-                    <i class="fa-solid fa-right-to-bracket"></i> Login Globo (status do token)
-                </a>
-                <a href="cartola-bookmarklet.php" class="btn btn-outline-navy w-100">
-                    <i class="fa-solid fa-bookmark"></i> Bookmarklet de captura de token
-                </a>
+        <form method="post">
+            <?= Csrf::field() ?>
+
+            <div class="mb-3">
+                <label class="form-label">Senha atual</label>
+                <input type="password" class="form-control" name="senha_atual" required autocomplete="current-password">
             </div>
-        </div>
+
+            <div class="mb-3">
+                <label class="form-label">Nova senha</label>
+                <input type="password" class="form-control" name="nova_senha" required minlength="8" autocomplete="new-password">
+                <div class="form-text">Mínimo de 8 caracteres.</div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Confirmar nova senha</label>
+                <input type="password" class="form-control" name="confirmar_senha" required minlength="8" autocomplete="new-password">
+            </div>
+
+            <button type="submit" class="btn btn-brand w-100">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar nova senha
+            </button>
+        </form>
     </div>
 </div>
 

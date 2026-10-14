@@ -132,9 +132,6 @@ putenv('DB_USERNAME=usuario_cartoleirao');
 putenv('DB_PASSWORD=a-senha-que-voce-definiu');
 
 putenv('CARTOLA_API_BASE=https://api.cartola.globo.com');
-putenv('CARTOLA_OFFICIAL_LEAGUE_ENABLED=false');
-putenv('CARTOLA_LOGIN_EMAIL=');
-putenv('CARTOLA_LOGIN_PASSWORD=');
 
 putenv('APP_URL=https://seudominio.com.br');
 ```
@@ -223,39 +220,14 @@ Dia da semana: *
 Comando: /usr/local/bin/php /home/usuario/cartoleirao/cron/sync_scores.php >> /home/usuario/cartoleirao/cron.log 2>&1
 ```
 
-**Liga oficial / Pontos Corridos "Glória Eterna" (a cada 20 minutos):**
-```
-Minuto: */20
-Hora: *
-Dia: *
-Mês: *
-Dia da semana: *
-Comando: /usr/local/bin/php /home/usuario/cartoleirao/cron/sync_official_league.php >> /home/usuario/cartoleirao/cron.log 2>&1
-```
-
-> **Já tinha os 3 cron jobs antigos configurados** (`sync_jogos.php`,
-> `sync_pontuacao.php`, `sync_liga_oficial.php`)? Eles continuam funcionando
-> por enquanto (viraram atalhos de 1 linha pros arquivos novos), mas
-> atualize o comando no cPanel pros nomes acima assim que puder — os
-> arquivos antigos serão removidos numa limpeza futura.
+> **Cron antigo `sync_official_league.php` / `sync_liga_oficial.php`?** Foram
+> removidos. Apague esse cron job no cPanel (senão ele gera e-mail de erro).
 
 Ajuste `/usr/local/bin/php` e `/home/usuario/cartoleirao` pros caminhos
 reais da sua conta. O `>> cron.log 2>&1` salva a saída num arquivo de log
 (fora do `public/`) em vez de mandar e-mail a cada execução — sem isso, o
 cPanel te manda um e-mail toda vez que o cron roda, o que enche a caixa de
 entrada rapidinho.
-
-> **Sobre o 3º cron job:** `sync_official_league.php` só faz alguma coisa se
-> `CARTOLA_OFFICIAL_LEAGUE_ENABLED=true` estiver no `config.local.php` **e**
-> houver um token válido em cache (colado em `admin/cartola-login.php` — ver
-> aviso na tela de `admin/liga-oficial.php`). Sem token, ele só loga um aviso
-> em `sync_log` e sai sem erro, então é seguro deixar esse cron sempre
-> ativo. O login automático por e-mail/senha continua batendo em captcha —
-> o que faz o token funcionar é colar manualmente, de vez em quando (o token
-> OIDC dura só algumas horas), o `access_token` capturado no DevTools do
-> navegador já logado em cartola.globo.com. Depois de colar o token uma vez,
-> esse cron passa a manter a tabela de pontos corridos ("Glória Eterna")
-> sincronizada sozinha até o token expirar de novo.
 
 ## 10. Ativar HTTPS (SSL grátis)
 
@@ -279,9 +251,9 @@ php ~/cartoleirao/scripts/backfill_scores.php
 Sem terminal, espere os cron jobs do passo 9 rodarem sozinhos nos primeiros
 10-15 minutos (eles vão sincronizar jogos e mercado automaticamente).
 
-Depois, vá em `admin/liga-oficial.php` e cole o JSON de cada liga (mesmo
-processo que já fizemos em ambiente local) — isso não tem como automatizar
-por cron, é sempre manual (ver README sobre o captcha do login da Globo).
+Depois, em `admin/inscricoes.php`, vincule cada inscrito ao time do Cartola
+(automático quando a busca por nome acha um único time, ou pelo botão
+"Vincular"). Os times vinculados entram sozinhos no ranking.
 
 ## 12. Checklist final
 
@@ -292,7 +264,7 @@ por cron, é sempre manual (ver README sobre o captcha do login da Globo).
       (teste: `https://seudominio.com.br/config.local.php` deve dar 404,
       não deve baixar nem mostrar nada)
 - [ ] Os 3 cron jobs aparecem em "Cron Jobs" no cPanel
-- [ ] `admin/inscricoes.php` e `admin/liga-oficial.php` carregam normalmente
+- [ ] `admin/inscricoes.php` e `admin/ligas.php` carregam normalmente
 
 Se o teste do `config.local.php` acima (item de segurança) FALHAR — ou seja,
 se a URL mostrar o conteúdo do arquivo — pare tudo e corrija o Document Root

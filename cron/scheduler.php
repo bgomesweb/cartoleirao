@@ -7,15 +7,6 @@
  *   (every 10 min) php /path/to/cartoleirao/cron/sync_games.php
  *   (every 15 min) php /path/to/cartoleirao/cron/sync_scores.php
  *
- * sync_official_league.php IS in the automatic loop (every 20 min). The
- * script protects itself: if CARTOLA_OFFICIAL_LEAGUE_ENABLED != true it
- * just logs and exits (exit 0), and if there's no valid token cached
- * (pasted in admin/cartola-login.php) it also exits without error, only
- * logging to sync_log. In other words, it's safe to always leave it in the
- * loop — it stays harmless until you paste a token; from then on it starts
- * running on its own, reusing that token (see the notice in
- * admin/liga-oficial.php).
- *
  * Here, in the local environment, it just sleeps and calls the scripts via
  * include, to make the "live" behavior available as soon as docker compose
  * up runs.
@@ -24,7 +15,6 @@
 $intervals = [
     'sync_games.php' => 600,             // 10 min
     'sync_scores.php' => 900,            // 15 min
-    'sync_official_league.php' => 1200,  // 20 min (only actually does something if there's a valid cached token)
 ];
 
 $lastRun = [];

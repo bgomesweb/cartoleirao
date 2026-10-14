@@ -25,17 +25,8 @@ putenv('DB_PASSWORD=TROQUE_ESTA_SENHA');
 // --- API do Cartola FC (pública, não precisa mudar) ---
 putenv('CARTOLA_API_BASE=https://api.cartola.globo.com');
 
-// --- Login pra liga oficial (deixe desabilitado — ver README, não funciona por causa do captcha) ---
-putenv('CARTOLA_OFFICIAL_LEAGUE_ENABLED=false');
-putenv('CARTOLA_LOGIN_EMAIL=');
-putenv('CARTOLA_LOGIN_PASSWORD=');
-
 // --- URL pública do site (usado em textos/links, ajuste pro seu domínio) ---
 putenv('APP_URL=https://seudominio.com.br');
-
-// --- Segredo do bookmarklet de captura automática de token (ver admin/cartola-bookmarklet.php) ---
-// Gere um valor aleatório, ex: rode `php -r "echo bin2hex(random_bytes(32));"` e cole o resultado abaixo.
-putenv('CARTOLA_BOOKMARKLET_SECRET=');
 
 // --- E-mails de inscrição/confirmação de pagamento ---
 putenv('EMAIL_FROM_ADDRESS=nao-responda@bgomesweb.com.br');

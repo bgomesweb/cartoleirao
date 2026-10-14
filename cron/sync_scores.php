@@ -11,10 +11,11 @@ use Cartoleirao\Services\SyncService;
 $api = new CartolaApiClient();
 $service = new SyncService($api);
 
-// Syncs the current round's score for EVERY team registered in
-// official_league_teams (public endpoint, doesn't depend on a
-// registrant/registration nor on login). For this to have data, someone
-// needs to have imported the team list first in admin/liga-oficial.php.
+// Syncs the score of the rounds for EVERY team in official_league_teams
+// (public endpoint, no login). That roster is built from the registrants
+// linked to a Cartola team through the public API — refreshed here first.
+\Cartoleirao\Models\OfficialLeagueTeam::syncFromRegistrants();
+
 try {
     $status = $api->marketStatus();
 } catch (\Throwable $e) {

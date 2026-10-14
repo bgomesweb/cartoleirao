@@ -6,6 +6,7 @@ require_once __DIR__ . '/../../src/Config/bootstrap.php';
 
 use Cartoleirao\Auth\AdminAuth;
 use Cartoleirao\Helpers\Csrf;
+use Cartoleirao\Models\OfficialLeagueTeam;
 use Cartoleirao\Models\Registrant;
 
 header('Content-Type: application/json');
@@ -29,5 +30,10 @@ if ($id <= 0 || $teamId <= 0) {
 }
 
 Registrant::linkCartolaTeam($id, $teamId, $teamName, $teamSlug);
+
+$registrant = Registrant::findById($id);
+if ($registrant) {
+    OfficialLeagueTeam::syncFromRegistrants((int) $registrant['league_id']);
+}
 
 echo json_encode(['ok' => true]);

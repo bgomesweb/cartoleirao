@@ -15,11 +15,7 @@ services:
       DB_USERNAME: ${DB_USERNAME:-cartoleirao}
       DB_PASSWORD: ${DB_PASSWORD:-cartoleirao}
       CARTOLA_API_BASE: ${CARTOLA_API_BASE:-https://api.cartola.globo.com}
-      CARTOLA_LOGIN_EMAIL: ${CARTOLA_LOGIN_EMAIL:-}
-      CARTOLA_LOGIN_PASSWORD: ${CARTOLA_LOGIN_PASSWORD:-}
-      CARTOLA_OFFICIAL_LEAGUE_ENABLED: ${CARTOLA_OFFICIAL_LEAGUE_ENABLED:-false}
       APP_URL: ${APP_URL:-http://localhost:8080}
-      CARTOLA_BOOKMARKLET_SECRET: ${CARTOLA_BOOKMARKLET_SECRET:-}
       EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-nao-responda@localhost}
       EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Cartoleirão}
       PIX_KEY: ${PIX_KEY:-19998970090}
@@ -83,9 +79,6 @@ services:
       DB_USERNAME: ${DB_USERNAME:-cartoleirao}
       DB_PASSWORD: ${DB_PASSWORD:-cartoleirao}
       CARTOLA_API_BASE: ${CARTOLA_API_BASE:-https://api.cartola.globo.com}
-      CARTOLA_LOGIN_EMAIL: ${CARTOLA_LOGIN_EMAIL:-}
-      CARTOLA_LOGIN_PASSWORD: ${CARTOLA_LOGIN_PASSWORD:-}
-      CARTOLA_OFFICIAL_LEAGUE_ENABLED: ${CARTOLA_OFFICIAL_LEAGUE_ENABLED:-false}
     entrypoint: ["php", "/var/www/html/cron/scheduler.php"]
     depends_on:
       - app

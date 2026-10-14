@@ -6,6 +6,7 @@ require_once __DIR__ . '/../src/Config/bootstrap.php';
 
 use Cartoleirao\Helpers\Csrf;
 use Cartoleirao\Models\League;
+use Cartoleirao\Models\OfficialLeagueTeam;
 use Cartoleirao\Models\Registrant;
 use Cartoleirao\Services\CartolaApiClient;
 use Cartoleirao\Services\EmailService;
@@ -92,6 +93,15 @@ if ($league && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     'cartola_team_id' => $cartolaTeamId,
                     'cartola_team_slug' => $cartolaTeamSlug,
                 ]);
+
+                // Auto-linked to a Cartola team: already enters the ranking roster.
+                if ($cartolaTeamId !== null) {
+                    try {
+                        OfficialLeagueTeam::syncFromRegistrants((int) $league['id']);
+                    } catch (\Throwable $e) {
+                        error_log('[inscricao] falha ao atualizar elenco do ranking: ' . $e->getMessage());
+                    }
+                }
 
                 // Confirmation e-mail + payment instructions. A failure here
                 // (e.g. server without sendmail configured) can't take down

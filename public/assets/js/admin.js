@@ -1,6 +1,26 @@
 $(function () {
     const csrfToken = $('meta[name="csrf-token"]').attr('content');
 
+    // Sidebar (mobile)
+    $('#sidebarToggle, #backdrop').on('click', function () {
+        $('#sidebar').toggleClass('open');
+        $('#backdrop').toggleClass('show');
+    });
+
+    // Registrations: client-side search
+    $('#filtro-busca').on('input', function () {
+        const term = $(this).val().toLowerCase().trim();
+        let visible = 0;
+        $('#tabela-inscricoes tbody tr').each(function () {
+            const match = term === '' || $(this).text().toLowerCase().indexOf(term) !== -1
+                || ($(this).find('input').val() || '').toLowerCase().indexOf(term) !== -1;
+            $(this).toggle(match);
+            if (match) { visible++; }
+        });
+        $('#vazio-texto').text('Nenhum resultado para a busca.');
+        $('#vazio-inscricoes').prop('hidden', visible > 0);
+    });
+
     // Payment toggle
     $(document).on('click', '.btn-toggle-pago', function () {
         const $btn = $(this);
@@ -12,9 +32,9 @@ $(function () {
             .done(function (resp) {
                 if (resp.ok) {
                     if (resp.paid) {
-                        $btn.removeClass('btn-outline-danger').addClass('btn-success').text('Pago ✓');
+                        $btn.removeClass('is-pending').addClass('is-paid').text('Pago ✓');
                     } else {
-                        $btn.removeClass('btn-success').addClass('btn-outline-danger').text('Pendente');
+                        $btn.removeClass('is-paid').addClass('is-pending').text('Pendente');
                     }
                     $btn.closest('tr').find('.paid-at').text(resp.paid_at || '—');
                 } else {

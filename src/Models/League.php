@@ -89,21 +89,4 @@ class League
         ');
         $stmt->execute([$leagueId]);
     }
-
-    public static function updateCartolaLeagueSlug(int $leagueId, ?string $slug): void
-    {
-        $pdo = Connection::get();
-        $stmt = $pdo->prepare('UPDATE leagues SET cartola_league_slug = ? WHERE id = ?');
-        $stmt->execute([$slug ?: null, $leagueId]);
-    }
-
-    /** All leagues that have the official-league slug configured (used by the sync cron). */
-    public static function withCartolaLeagueSlug(): array
-    {
-        $pdo = Connection::get();
-
-        return $pdo->query("
-            SELECT * FROM leagues WHERE cartola_league_slug IS NOT NULL AND cartola_league_slug != '' AND is_active = 1
-        ")->fetchAll();
-    }
 }
