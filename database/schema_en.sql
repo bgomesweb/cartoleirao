@@ -55,11 +55,29 @@ CREATE TABLE IF NOT EXISTS league_settings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
+-- seasons (one per year; the active one drives the whole site/crons.
+-- Rounds, registrants, ranking teams and bonus rounds belong to a season,
+-- so scores per round/year are kept as history)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS seasons (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    year SMALLINT NOT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 0,
+    registration_deadline DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_seasons_year (year)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO seasons (year, is_active, registration_deadline)
+VALUES (2027, 1, '2027-01-26 23:59:59');
+
+-- ============================================================
 -- registrants (sign-up/payment — NOT the ranking, see README)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS registrants (
     id INT AUTO_INCREMENT PRIMARY KEY,
     league_id INT NOT NULL,
+    season_id INT NOT NULL,
     name VARCHAR(150) NOT NULL,
     email VARCHAR(150) NOT NULL,
     whatsapp VARCHAR(20) NOT NULL,
@@ -73,7 +91,8 @@ CREATE TABLE IF NOT EXISTS registrants (
     active TINYINT(1) NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
-    UNIQUE KEY uq_registrants_league_email (league_id, email)
+    FOREIGN KEY (season_id) REFERENCES seasons(id),
+    UNIQUE KEY uq_registrants_league_season_email (league_id, season_id, email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
@@ -92,11 +111,13 @@ CREATE TABLE IF NOT EXISTS clubs (
 -- ============================================================
 CREATE TABLE IF NOT EXISTS rounds (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    season_id INT NOT NULL,
     number INT NOT NULL,
     starts_at DATETIME NULL,
     ends_at DATETIME NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'scheduled',
-    UNIQUE KEY uq_rounds_number (number)
+    FOREIGN KEY (season_id) REFERENCES seasons(id),
+    UNIQUE KEY uq_rounds_season_number (season_id, number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
@@ -126,6 +147,7 @@ CREATE TABLE IF NOT EXISTS games (
 CREATE TABLE IF NOT EXISTS official_league_teams (
     id INT AUTO_INCREMENT PRIMARY KEY,
     league_id INT NOT NULL,
+    season_id INT NOT NULL,
     cartola_team_id BIGINT NOT NULL,
     team_name VARCHAR(150) NULL,
     owner_name VARCHAR(150) NULL,
@@ -142,8 +164,9 @@ CREATE TABLE IF NOT EXISTS official_league_teams (
     standing_losses INT NULL,
     standing_cartola_points DECIMAL(10,4) NULL,
     FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+    FOREIGN KEY (season_id) REFERENCES seasons(id),
     FOREIGN KEY (registrant_id) REFERENCES registrants(id) ON DELETE SET NULL,
-    UNIQUE KEY uq_league_team (league_id, cartola_team_id)
+    UNIQUE KEY uq_league_season_team (league_id, season_id, cartola_team_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
@@ -196,12 +219,14 @@ INSERT INTO market_status_cache (id, status_code, current_round, updated_at)
 CREATE TABLE IF NOT EXISTS bonus_rounds (
     id INT AUTO_INCREMENT PRIMARY KEY,
     league_id INT NOT NULL,
+    season_id INT NOT NULL,
     round_number INT NOT NULL,
     prize_amount DECIMAL(10,2) NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
-    UNIQUE KEY uq_league_bonus_round (league_id, round_number)
+    FOREIGN KEY (season_id) REFERENCES seasons(id),
+    UNIQUE KEY uq_league_season_bonus_round (league_id, season_id, round_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================

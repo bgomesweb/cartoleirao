@@ -7,13 +7,16 @@ require_once __DIR__ . '/../src/Config/bootstrap.php';
 use Cartoleirao\Helpers\Csrf;
 use Cartoleirao\Models\League;
 use Cartoleirao\Models\OfficialLeagueTeam;
+use Cartoleirao\Models\Season;
 use Cartoleirao\Models\Registrant;
 use Cartoleirao\Services\CartolaApiClient;
 use Cartoleirao\Services\EmailService;
 
-// Prazo final das inscrições (inclusive o dia 26/01/2027).
-$registrationDeadline = new DateTimeImmutable('2027-01-26 23:59:59', new DateTimeZone('America/Sao_Paulo'));
-$deadlinePassed = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo')) > $registrationDeadline;
+// Sem inscrição aberta (flag desligada ou prazo da temporada vencido) a página some do site.
+Season::guardPublicPage(true);
+
+// Prazo final das inscrições: definido na temporada ativa (painel admin).
+$deadlinePassed = Season::deadlinePassed();
 
 $leagues = League::all();
 foreach ($leagues as &$l) {

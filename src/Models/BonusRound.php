@@ -27,6 +27,7 @@ class BonusRound
             SELECT br.*, l.name AS league_name
             FROM bonus_rounds br
             JOIN leagues l ON l.id = br.league_id
+            WHERE br.season_id = ' . Season::activeId() . '
             ORDER BY l.name ASC, br.round_number ASC
         ')->fetchAll();
     }
@@ -34,8 +35,8 @@ class BonusRound
     public static function listByLeague(int $leagueId): array
     {
         $pdo = Connection::get();
-        $stmt = $pdo->prepare('SELECT * FROM bonus_rounds WHERE league_id = ? ORDER BY round_number ASC');
-        $stmt->execute([$leagueId]);
+        $stmt = $pdo->prepare('SELECT * FROM bonus_rounds WHERE league_id = ? AND season_id = ? ORDER BY round_number ASC');
+        $stmt->execute([$leagueId, Season::activeId()]);
 
         return $stmt->fetchAll();
     }
@@ -54,8 +55,8 @@ class BonusRound
     public static function forLeagueAndRound(int $leagueId, int $roundNumber): ?array
     {
         $pdo = Connection::get();
-        $stmt = $pdo->prepare('SELECT * FROM bonus_rounds WHERE league_id = ? AND round_number = ?');
-        $stmt->execute([$leagueId, $roundNumber]);
+        $stmt = $pdo->prepare('SELECT * FROM bonus_rounds WHERE league_id = ? AND season_id = ? AND round_number = ?');
+        $stmt->execute([$leagueId, Season::activeId(), $roundNumber]);
         $row = $stmt->fetch();
 
         return $row ?: null;
@@ -72,14 +73,15 @@ class BonusRound
     {
         $pdo = Connection::get();
         $stmt = $pdo->prepare('
-            INSERT INTO bonus_rounds (league_id, round_number, prize_amount)
-            VALUES (:league_id, :round_number, :prize_amount)
+            INSERT INTO bonus_rounds (league_id, season_id, round_number, prize_amount)
+            VALUES (:league_id, :season_id, :round_number, :prize_amount)
             ON DUPLICATE KEY UPDATE prize_amount = VALUES(prize_amount)
         ');
 
         foreach ($roundNumbers as $number) {
             $stmt->execute([
                 ':league_id' => $leagueId,
+                ':season_id' => Season::activeId(),
                 ':round_number' => $number,
                 ':prize_amount' => $prizeAmount,
             ]);
@@ -117,10 +119,10 @@ class BonusRound
             SELECT br.*, l.name AS league_name
             FROM bonus_rounds br
             JOIN leagues l ON l.id = br.league_id
-            WHERE br.round_number = ? AND l.is_active = 1
+            WHERE br.round_number = ? AND br.season_id = ? AND l.is_active = 1
             ORDER BY l.is_default DESC, l.name ASC
         ');
-        $stmt->execute([$currentRound]);
+        $stmt->execute([$currentRound, Season::activeId()]);
 
         return $stmt->fetchAll();
     }

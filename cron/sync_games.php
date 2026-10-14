@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../src/Config/env.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use Cartoleirao\Models\Season;
 use Cartoleirao\Services\CartolaApiClient;
 use Cartoleirao\Services\SyncService;
 
@@ -18,6 +19,12 @@ $totalClubs = $service->syncClubs();
 echo "[sync_games] clubes sincronizados: {$totalClubs}\n";
 if ($totalClubs === 0 && $api->getLastError()) {
     echo "[sync_games] motivo da falha em /clubes: {$api->getLastError()}\n";
+}
+
+// Same as sync_scores: no rounds are saved into the new season while sign-ups are open.
+if (Season::registrationsOpen()) {
+    echo "[sync_games] inscrições abertas — jogos não são sincronizados\n";
+    exit(0);
 }
 
 $round = $service->syncCurrentRoundGames();

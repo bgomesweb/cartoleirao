@@ -16,7 +16,7 @@ $username = AdminAuth::currentUsername() ?? '';
 $pageTitle = $pageTitle ?? 'Admin';
 $pageSubtitle = $pageSubtitle ?? null;
 
-$ligasPages = ['ligas.php', 'rodadas-bonus.php'];
+$ligasPages = ['temporada.php', 'temporada-historico.php', 'ligas.php', 'rodadas-bonus.php'];
 $ligasOpen = in_array($currentPage, $ligasPages, true);
 $configPages = ['integracoes.php', 'configuracoes.php'];
 $configOpen = in_array($currentPage, $configPages, true);
@@ -63,6 +63,9 @@ $configOpen = in_array($currentPage, $configPages, true);
                 <i class="fa-solid fa-chevron-down caret"></i>
             </button>
             <div class="collapse side-sub <?= $ligasOpen ? 'show' : '' ?>" id="menuLigas">
+                <a class="side-link <?= in_array($currentPage, ['temporada.php', 'temporada-historico.php'], true) ? 'active' : '' ?>" href="temporada.php">
+                    <i class="fa-solid fa-calendar-days"></i> Temporada
+                </a>
                 <a class="side-link <?= $currentPage === 'ligas.php' ? 'active' : '' ?>" href="ligas.php">
                     <i class="fa-solid fa-medal"></i> Ligas e premiações
                 </a>

@@ -2,11 +2,9 @@
 
 declare(strict_types=1);
 
-// Temporário: somente a página de inscrição está pública.
-header('Location: inscricao.php', true, 302);
-exit;
-
 require_once __DIR__ . '/../src/Config/bootstrap.php';
+
+\Cartoleirao\Models\Season::guardPublicPage(false);
 
 use Cartoleirao\Models\BonusRound;
 use Cartoleirao\Models\League;

@@ -12,22 +12,24 @@ class Round
     {
         $pdo = Connection::get();
         $stmt = $pdo->prepare('
-            INSERT INTO rounds (number, starts_at, ends_at, status)
-            VALUES (:number, :starts_at, :ends_at, :status)
+            INSERT INTO rounds (season_id, number, starts_at, ends_at, status)
+            VALUES (:season_id, :number, :starts_at, :ends_at, :status)
             ON DUPLICATE KEY UPDATE
                 starts_at = COALESCE(VALUES(starts_at), starts_at),
                 ends_at = COALESCE(VALUES(ends_at), ends_at),
                 status = VALUES(status)
         ');
+        $seasonId = Season::activeId();
         $stmt->execute([
+            ':season_id' => $seasonId,
             ':number' => $number,
             ':starts_at' => $startsAt,
             ':ends_at' => $endsAt,
             ':status' => $status,
         ]);
 
-        $select = $pdo->prepare('SELECT id FROM rounds WHERE number = ?');
-        $select->execute([$number]);
+        $select = $pdo->prepare('SELECT id FROM rounds WHERE season_id = ? AND number = ?');
+        $select->execute([$seasonId, $number]);
 
         return (int) $select->fetchColumn();
     }
@@ -35,8 +37,8 @@ class Round
     public static function findByNumber(int $number): ?array
     {
         $pdo = Connection::get();
-        $stmt = $pdo->prepare('SELECT * FROM rounds WHERE number = ?');
-        $stmt->execute([$number]);
+        $stmt = $pdo->prepare('SELECT * FROM rounds WHERE season_id = ? AND number = ?');
+        $stmt->execute([Season::activeId(), $number]);
         $row = $stmt->fetch();
 
         return $row ?: null;
@@ -56,7 +58,8 @@ class Round
     public static function mostRecent(): ?array
     {
         $pdo = Connection::get();
-        $stmt = $pdo->query('SELECT * FROM rounds ORDER BY number DESC LIMIT 1');
+        $stmt = $pdo->prepare('SELECT * FROM rounds WHERE season_id = ? ORDER BY number DESC LIMIT 1');
+        $stmt->execute([Season::activeId()]);
         $row = $stmt->fetch();
 
         return $row ?: null;
@@ -66,6 +69,9 @@ class Round
     {
         $pdo = Connection::get();
 
-        return $pdo->query('SELECT * FROM rounds ORDER BY number DESC')->fetchAll();
+        $stmt = $pdo->prepare('SELECT * FROM rounds WHERE season_id = ? ORDER BY number DESC');
+        $stmt->execute([Season::activeId()]);
+
+        return $stmt->fetchAll();
     }
 }

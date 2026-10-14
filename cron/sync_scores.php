@@ -5,8 +5,16 @@ declare(strict_types=1);
 require_once __DIR__ . '/../src/Config/env.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use Cartoleirao\Models\Season;
 use Cartoleirao\Services\CartolaApiClient;
 use Cartoleirao\Services\SyncService;
+
+// While the sign-up flow is open there is no scoring for the new season yet
+// (the API may still be serving the previous year's rounds), so nothing is saved.
+if (Season::registrationsOpen()) {
+    echo "[sync_scores] inscrições abertas — pontuações não são sincronizadas\n";
+    exit(0);
+}
 
 $api = new CartolaApiClient();
 $service = new SyncService($api);

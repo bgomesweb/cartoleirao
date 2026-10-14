@@ -18,14 +18,15 @@ class Registrant
 
         $stmt = $pdo->prepare('
             INSERT INTO registrants
-                (league_id, name, email, whatsapp, cartola_team_name, cartola_team_id, cartola_team_slug, linked_to_api, paid)
+                (league_id, season_id, name, email, whatsapp, cartola_team_name, cartola_team_id, cartola_team_slug, linked_to_api, paid)
             VALUES
-                (:league_id, :name, :email, :whatsapp, :cartola_team_name, :cartola_team_id, :cartola_team_slug, :linked_to_api, 0)
+                (:league_id, :season_id, :name, :email, :whatsapp, :cartola_team_name, :cartola_team_id, :cartola_team_slug, :linked_to_api, 0)
         ');
 
         try {
             $stmt->execute([
                 ':league_id' => $data['league_id'],
+                ':season_id' => Season::activeId(),
                 ':name' => $data['name'],
                 ':email' => $data['email'],
                 ':whatsapp' => $data['whatsapp'],
@@ -47,8 +48,8 @@ class Registrant
     public static function findByLeague(int $leagueId, ?string $paidFilter = null): array
     {
         $pdo = Connection::get();
-        $sql = 'SELECT * FROM registrants WHERE league_id = ? AND active = 1';
-        $params = [$leagueId];
+        $sql = 'SELECT * FROM registrants WHERE league_id = ? AND season_id = ? AND active = 1';
+        $params = [$leagueId, Season::activeId()];
 
         if ($paidFilter === 'paid') {
             $sql .= ' AND paid = 1';
@@ -126,10 +127,10 @@ class Registrant
         $pdo = Connection::get();
         $stmt = $pdo->prepare('
             SELECT * FROM registrants
-            WHERE league_id = :league_id AND cartola_team_id = :team_id AND active = 1
+            WHERE league_id = :league_id AND season_id = :season_id AND cartola_team_id = :team_id AND active = 1
             LIMIT 1
         ');
-        $stmt->execute([':league_id' => $leagueId, ':team_id' => $cartolaTeamId]);
+        $stmt->execute([':league_id' => $leagueId, ':season_id' => Season::activeId(), ':team_id' => $cartolaTeamId]);
         $row = $stmt->fetch();
 
         return $row ?: null;
@@ -147,13 +148,14 @@ class Registrant
         $stmt = $pdo->prepare('
             SELECT * FROM registrants
             WHERE league_id = :league_id
+              AND season_id = :season_id
               AND active = 1
               AND linked_to_api = 0
               AND cartola_team_name IS NOT NULL
               AND LOWER(TRIM(cartola_team_name)) = LOWER(TRIM(:team_name))
             LIMIT 1
         ');
-        $stmt->execute([':league_id' => $leagueId, ':team_name' => $teamName]);
+        $stmt->execute([':league_id' => $leagueId, ':season_id' => Season::activeId(), ':team_name' => $teamName]);
         $row = $stmt->fetch();
 
         return $row ?: null;
@@ -176,11 +178,12 @@ class Registrant
         $stmt = $pdo->prepare('
             SELECT cartola_team_name FROM registrants
             WHERE league_id = :league_id
+              AND season_id = :season_id
               AND active = 1
               AND cartola_team_name IS NOT NULL
               AND cartola_team_name != \'\'
         ');
-        $stmt->execute([':league_id' => $leagueId]);
+        $stmt->execute([':league_id' => $leagueId, ':season_id' => Season::activeId()]);
 
         $names = [];
         foreach ($stmt->fetchAll(\PDO::FETCH_COLUMN) as $name) {
@@ -196,10 +199,10 @@ class Registrant
         $pdo = Connection::get();
         $stmt = $pdo->prepare('
             SELECT * FROM registrants
-            WHERE league_id = :league_id AND active = 1 AND linked_to_api = 0
+            WHERE league_id = :league_id AND season_id = :season_id AND active = 1 AND linked_to_api = 0
             ORDER BY name
         ');
-        $stmt->execute([':league_id' => $leagueId]);
+        $stmt->execute([':league_id' => $leagueId, ':season_id' => Season::activeId()]);
 
         return $stmt->fetchAll();
     }
@@ -214,9 +217,9 @@ class Registrant
                 SUM(paid = 0) AS pending,
                 SUM(linked_to_api = 1) AS linked
             FROM registrants
-            WHERE league_id = ? AND active = 1
+            WHERE league_id = ? AND season_id = ? AND active = 1
         ');
-        $stmt->execute([$leagueId]);
+        $stmt->execute([$leagueId, Season::activeId()]);
 
         return $stmt->fetch() ?: ['total' => 0, 'paid' => 0, 'pending' => 0, 'linked' => 0];
     }

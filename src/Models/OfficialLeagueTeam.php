@@ -20,8 +20,8 @@ class OfficialLeagueTeam
     ): void {
         $pdo = Connection::get();
         $stmt = $pdo->prepare('
-            INSERT INTO official_league_teams (league_id, cartola_team_id, team_name, owner_name, is_subscriber, slug, crest_url, registrant_id)
-            VALUES (:league_id, :cartola_team_id, :team_name, :owner_name, :is_subscriber, :slug, :crest_url, :registrant_id)
+            INSERT INTO official_league_teams (league_id, season_id, cartola_team_id, team_name, owner_name, is_subscriber, slug, crest_url, registrant_id)
+            VALUES (:league_id, :season_id, :cartola_team_id, :team_name, :owner_name, :is_subscriber, :slug, :crest_url, :registrant_id)
             ON DUPLICATE KEY UPDATE
                 team_name = VALUES(team_name),
                 owner_name = VALUES(owner_name),
@@ -32,6 +32,7 @@ class OfficialLeagueTeam
         ');
         $stmt->execute([
             ':league_id' => $leagueId,
+            ':season_id' => Season::activeId(),
             ':cartola_team_id' => $cartolaTeamId,
             ':team_name' => $teamName,
             ':owner_name' => $ownerName,
@@ -52,8 +53,8 @@ class OfficialLeagueTeam
         $pdo = Connection::get();
         $sql = 'SELECT id, league_id, name, cartola_team_id, cartola_team_name, cartola_team_slug
                 FROM registrants
-                WHERE active = 1 AND linked_to_api = 1 AND cartola_team_id IS NOT NULL';
-        $params = [];
+                WHERE active = 1 AND linked_to_api = 1 AND cartola_team_id IS NOT NULL AND season_id = ?';
+        $params = [Season::activeId()];
         if ($leagueId !== null) {
             $sql .= ' AND league_id = ?';
             $params[] = $leagueId;
@@ -104,7 +105,7 @@ class OfficialLeagueTeam
                 standing_draws = :draws,
                 standing_losses = :losses,
                 standing_cartola_points = :cartola_points
-            WHERE league_id = :league_id AND cartola_team_id = :cartola_team_id
+            WHERE league_id = :league_id AND season_id = :season_id AND cartola_team_id = :cartola_team_id
         ');
         $stmt->execute([
             ':position' => $position,
@@ -115,6 +116,7 @@ class OfficialLeagueTeam
             ':losses' => $losses,
             ':cartola_points' => $cartolaPoints,
             ':league_id' => $leagueId,
+            ':season_id' => Season::activeId(),
             ':cartola_team_id' => $cartolaTeamId,
         ]);
     }
@@ -127,10 +129,10 @@ class OfficialLeagueTeam
             SELECT t.*, r.name AS registrant_name, r.email AS registrant_email, r.paid AS registrant_paid
             FROM official_league_teams t
             LEFT JOIN registrants r ON r.id = t.registrant_id
-            WHERE t.league_id = :league_id
+            WHERE t.league_id = :league_id AND t.season_id = :season_id
             ORDER BY (t.standing_position IS NULL), t.standing_position ASC
         ');
-        $stmt->execute([':league_id' => $leagueId]);
+        $stmt->execute([':league_id' => $leagueId, ':season_id' => Season::activeId()]);
 
         return $stmt->fetchAll();
     }
@@ -143,10 +145,10 @@ class OfficialLeagueTeam
             SELECT t.*, r.name AS registrant_name, r.email AS registrant_email, r.paid AS registrant_paid
             FROM official_league_teams t
             LEFT JOIN registrants r ON r.id = t.registrant_id
-            WHERE t.league_id = :league_id
+            WHERE t.league_id = :league_id AND t.season_id = :season_id
             ORDER BY (t.registrant_id IS NULL) DESC, t.team_name ASC
         ');
-        $stmt->execute([':league_id' => $leagueId]);
+        $stmt->execute([':league_id' => $leagueId, ':season_id' => Season::activeId()]);
 
         return $stmt->fetchAll();
     }
@@ -155,9 +157,10 @@ class OfficialLeagueTeam
     {
         $pdo = Connection::get();
         $stmt = $pdo->prepare('
-            SELECT COUNT(*) FROM official_league_teams WHERE league_id = :league_id AND registrant_id IS NULL
+            SELECT COUNT(*) FROM official_league_teams
+            WHERE league_id = :league_id AND season_id = :season_id AND registrant_id IS NULL
         ');
-        $stmt->execute([':league_id' => $leagueId]);
+        $stmt->execute([':league_id' => $leagueId, ':season_id' => Season::activeId()]);
 
         return (int) $stmt->fetchColumn();
     }
@@ -188,8 +191,8 @@ class OfficialLeagueTeam
     public static function cartolaIdToIdMap(int $leagueId): array
     {
         $pdo = Connection::get();
-        $stmt = $pdo->prepare('SELECT id, cartola_team_id FROM official_league_teams WHERE league_id = ?');
-        $stmt->execute([$leagueId]);
+        $stmt = $pdo->prepare('SELECT id, cartola_team_id FROM official_league_teams WHERE league_id = ? AND season_id = ?');
+        $stmt->execute([$leagueId, Season::activeId()]);
 
         $map = [];
         foreach ($stmt->fetchAll() as $row) {

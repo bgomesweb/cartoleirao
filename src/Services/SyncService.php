@@ -12,6 +12,7 @@ use Cartoleirao\Models\OfficialLeagueTeam;
 use Cartoleirao\Models\Registrant;
 use Cartoleirao\Models\Round;
 use Cartoleirao\Models\Score;
+use Cartoleirao\Models\Season;
 
 class SyncService
 {
@@ -146,7 +147,8 @@ class SyncService
         $roundId = (int) $round['id'];
 
         $pdo = Connection::get();
-        $stmt = $pdo->query('SELECT id, cartola_team_id FROM official_league_teams');
+        $stmt = $pdo->prepare('SELECT id, cartola_team_id FROM official_league_teams WHERE season_id = ?');
+        $stmt->execute([Season::activeId()]);
         $teams = $stmt->fetchAll();
 
         $succeeded = 0;

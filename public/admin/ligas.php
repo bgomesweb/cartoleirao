@@ -55,7 +55,7 @@ require __DIR__ . '/includes/header.php';
                     <div class="form-section d-flex justify-content-between align-items-center gap-3">
                         <div>
                             <div class="fw-semibold">Inscrições abertas</div>
-                            <div class="text-muted small">Quando desligado, o formulário público deixa de aceitar novas inscrições.</div>
+                            <div class="text-muted small">Ligado, o site público mostra só a inscrição. Desligado (em todas as ligas), a inscrição some e voltam Início, Jogos e Classificação.</div>
                         </div>
                         <div class="form-check form-switch m-0">
                             <input class="form-check-input" type="checkbox" role="switch" name="inscricoes_abertas"

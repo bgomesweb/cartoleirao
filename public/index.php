@@ -2,11 +2,9 @@
 
 declare(strict_types=1);
 
-// Temporário: somente a página de inscrição está pública.
-header('Location: inscricao.php', true, 302);
-exit;
-
 require_once __DIR__ . '/../src/Config/bootstrap.php';
+
+\Cartoleirao\Models\Season::guardPublicPage(false);
 
 use Cartoleirao\Models\League;
 use Cartoleirao\Models\Score;
@@ -110,8 +108,7 @@ require __DIR__ . '/includes/header.php';
                 durante todo o Brasileirão Série A — com ranking em tempo real,
                 zoeira garantida no grupo e prêmio pra quem terminar no topo.
             </p>
-            <a href="inscricao.php" class="btn btn-lg btn-cartoleirao">Quero me inscrever</a>
-            <a href="classificacao.php" class="btn btn-lg btn-outline-light ms-2">Ver classificação</a>
+            <a href="classificacao.php" class="btn btn-lg btn-cartoleirao">Ver classificação</a>
         </div>
         <div class="text-center">
             <svg class="hero-ball" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
@@ -191,11 +188,6 @@ require __DIR__ . '/includes/header.php';
                     <?php endif; ?>
 
                     <div class="premiacao-v2-footer">
-                        <?php if ($league['registrations_open']): ?>
-                            <span class="badge badge-laranja">Inscrições abertas</span>
-                        <?php else: ?>
-                            <span class="badge bg-secondary">Inscrições encerradas</span>
-                        <?php endif; ?>
                         <?php if (!empty($league['registration_fee'])): ?>
                             <span class="text-muted small">Inscrição: R$ <?= number_format((float) $league['registration_fee'], 2, ',', '.') ?></span>
                         <?php endif; ?>

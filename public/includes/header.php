@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 use Cartoleirao\Models\BonusRound;
 use Cartoleirao\Models\MarketStatus;
+use Cartoleirao\Models\Season;
 
 $currentPage = basename($_SERVER['SCRIPT_NAME']);
+// Com inscrições abertas o site mostra só a inscrição; fechadas, só o conteúdo da temporada.
+$registrationMode = Season::registrationsOpen();
 $market = MarketStatus::current();
 $bonusRoundsModal = BonusRound::forCurrentRound($market['current_round'] ?? null);
 
@@ -23,7 +26,7 @@ $bonusRoundsModal = BonusRound::forCurrentRound($market['current_round'] ?? null
 <body>
 <nav class="navbar navbar-cartoleirao navbar-expand-lg">
     <div class="container">
-        <a class="navbar-brand d-flex align-items-center" href="inscricao.php">
+        <a class="navbar-brand d-flex align-items-center" href="<?= $registrationMode ? 'inscricao.php' : 'index.php' ?>">
             <img src="assets/img/logo.png" alt="Cartoleirão">
             Cartoleirão
             <?php if ($market): ?>
@@ -37,9 +40,15 @@ $bonusRoundsModal = BonusRound::forCurrentRound($market['current_round'] ?? null
         </button>
         <div class="collapse navbar-collapse" id="navMenu">
             <div class="navbar-nav ms-auto">
-                <a class="nav-link <?= $currentPage === 'inscricao.php' ? 'active-link' : '' ?>" href="inscricao.php">
-                    <span class="badge bg-warning text-dark">Inscreva-se</span>
-                </a>
+                <?php if ($registrationMode): ?>
+                    <a class="nav-link <?= $currentPage === 'inscricao.php' ? 'active-link' : '' ?>" href="inscricao.php">
+                        <span class="badge bg-warning text-dark">Inscreva-se</span>
+                    </a>
+                <?php else: ?>
+                    <a class="nav-link <?= $currentPage === 'index.php' ? 'active-link' : '' ?>" href="index.php">Início</a>
+                    <a class="nav-link <?= $currentPage === 'jogos.php' ? 'active-link' : '' ?>" href="jogos.php">Jogos</a>
+                    <a class="nav-link <?= $currentPage === 'classificacao.php' ? 'active-link' : '' ?>" href="classificacao.php">Classificação</a>
+                <?php endif; ?>
             </div>
         </div>
     </div>
