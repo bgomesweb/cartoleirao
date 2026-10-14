@@ -16,6 +16,7 @@ $(function () {
                     } else {
                         $btn.removeClass('btn-success').addClass('btn-outline-danger').text('Pendente');
                     }
+                    $btn.closest('tr').find('.paid-at').text(resp.paid_at || '—');
                 } else {
                     alert('Não foi possível atualizar o pagamento.');
                 }

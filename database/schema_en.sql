@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS registrants (
     cartola_team_slug VARCHAR(150) NULL,
     linked_to_api TINYINT(1) NOT NULL DEFAULT 0,
     paid TINYINT(1) NOT NULL DEFAULT 0,
+    paid_at DATETIME NULL,
     active TINYINT(1) NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,

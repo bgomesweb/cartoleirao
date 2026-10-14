@@ -22,7 +22,8 @@ if (!Csrf::isValid($_POST['_csrf'] ?? null) || $id <= 0) {
 }
 
 $registrantBefore = Registrant::findById($id);
-$paid = Registrant::togglePaid($id);
+$result = Registrant::togglePaid($id);
+$paid = $result['paid'];
 
 // Only fires the confirmation e-mail when the toggle MARKS it as paid
 // (0 -> 1), never when unmarking (1 -> 0) — reverting a payment by mistake
@@ -38,4 +39,8 @@ if ($paid && $registrantBefore && !$registrantBefore['paid']) {
     }
 }
 
-echo json_encode(['ok' => true, 'paid' => $paid]);
+echo json_encode([
+    'ok' => true,
+    'paid' => $paid,
+    'paid_at' => $result['paid_at'] ? (new DateTime($result['paid_at']))->format('d/m/Y H:i') : null,
+]);

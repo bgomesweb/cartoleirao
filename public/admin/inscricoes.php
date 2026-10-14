@@ -48,11 +48,12 @@ require __DIR__ . '/includes/header.php';
             <th>Vinculação</th>
             <th>Pagamento</th>
             <th>Inscrito em</th>
+            <th>Pago em</th>
         </tr>
         </thead>
         <tbody>
         <?php if (empty($registrants)): ?>
-            <tr><td colspan="7" class="text-center text-muted py-4">Nenhuma inscrição encontrada.</td></tr>
+            <tr><td colspan="8" class="text-center text-muted py-4">Nenhuma inscrição encontrada.</td></tr>
         <?php endif; ?>
 
         <?php foreach ($registrants as $r): ?>
@@ -87,6 +88,7 @@ require __DIR__ . '/includes/header.php';
                     </button>
                 </td>
                 <td><?= (new DateTime($r['created_at']))->format('d/m/Y H:i') ?></td>
+                <td class="paid-at"><?= !empty($r['paid_at']) ? (new DateTime($r['paid_at']))->format('d/m/Y H:i') : '—' ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>

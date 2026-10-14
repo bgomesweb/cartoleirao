@@ -74,16 +74,24 @@ class Registrant
         return $row ?: null;
     }
 
-    public static function togglePaid(int $id): bool
+    /**
+     * Toggles the paid flag, storing the payment date/time (paid_at) when
+     * marking as paid and clearing it when reverting. MySQL evaluates SET
+     * assignments left to right, so `paid` in the IF() is already the new value.
+     *
+     * @return array{paid: bool, paid_at: ?string}
+     */
+    public static function togglePaid(int $id): array
     {
         $pdo = Connection::get();
-        $stmt = $pdo->prepare('UPDATE registrants SET paid = 1 - paid WHERE id = ?');
+        $stmt = $pdo->prepare('UPDATE registrants SET paid = 1 - paid, paid_at = IF(paid = 1, NOW(), NULL) WHERE id = ?');
         $stmt->execute([$id]);
 
-        $stmt = $pdo->prepare('SELECT paid FROM registrants WHERE id = ?');
+        $stmt = $pdo->prepare('SELECT paid, paid_at FROM registrants WHERE id = ?');
         $stmt->execute([$id]);
+        $row = $stmt->fetch();
 
-        return (bool) $stmt->fetchColumn();
+        return ['paid' => (bool) $row['paid'], 'paid_at' => $row['paid_at']];
     }
 
     public static function linkCartolaTeam(int $id, int $teamId, string $teamName, string $teamSlug): void
