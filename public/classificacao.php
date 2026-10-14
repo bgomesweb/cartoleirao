@@ -315,10 +315,8 @@ require __DIR__ . '/includes/header.php';
                 $currentPosition = $i + 1;
                 $change = Score::positionChange($previousPositionMap, (int) $r['official_league_team_id'], $currentPosition);
                 $isBonusRoundChampion = $currentBonusRound && $currentPosition === 1;
-                $inPodium = count($ranking) >= 3 && $currentPosition <= 3;
                 $classes = trim(
                     ($currentPosition <= 3 ? 'top-' . $currentPosition : '')
-                    . ($inPodium ? ' rk-dup' : '')
                     . ($isBonusRoundChampion ? ' is-bonus' : '')
                 );
                 $busca = teamDisplayName($r) . ' ' . ($r['registrant_name'] ?? '');

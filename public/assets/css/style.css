@@ -567,9 +567,6 @@ a { color: var(--cartoleirao-navy-claro); }
 .is-hidden { display: none !important; }
 .min-w-0 { min-width: 0; }
 
-/* os 3 primeiros já estão no pódio: aparecem na lista só durante a busca */
-.rk-list:not(.is-searching) .rk-row.rk-dup { display: none; }
-
 .rk-row.top-1 { border-left-color: #e5a800; }
 .rk-row.top-2 { border-left-color: #9aa3b5; }
 .rk-row.top-3 { border-left-color: #c9803f; }

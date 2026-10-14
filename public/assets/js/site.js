@@ -1,6 +1,6 @@
 /**
  * Filtro de times na classificação: digita parte do nome do time ou do
- * participante. Durante a busca o pódio some e os 3 primeiros voltam pra lista.
+ * participante. Durante a busca o pódio some e só a lista é filtrada.
  */
 $(function () {
     var $input = $('#busca-time');
@@ -28,7 +28,7 @@ $(function () {
         $rows.each(function () {
             var match = !searching || normalize($(this).attr('data-busca')).indexOf(query) !== -1;
             $(this).toggleClass('is-hidden', !match);
-            if (match && (searching || !$(this).hasClass('rk-dup'))) {
+            if (match) {
                 shown++;
             }
         });
