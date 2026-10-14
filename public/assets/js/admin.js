@@ -29,6 +29,27 @@ $(function () {
             });
     });
 
+    // Observações: saves on blur/Enter when the value changed
+    $(document).on('keydown', '.input-observacao', function (e) {
+        if (e.key === 'Enter') { this.blur(); }
+    });
+    $(document).on('change', '.input-observacao', function () {
+        const $input = $(this);
+        $input.prop('disabled', true);
+
+        $.post('ajax_salvar_observacao.php', { id: $input.data('id'), notes: $input.val(), _csrf: csrfToken })
+            .done(function (resp) {
+                if (resp.ok) {
+                    $input.data('original', $input.val()).addClass('is-valid');
+                    setTimeout(function () { $input.removeClass('is-valid'); }, 1200);
+                } else {
+                    alert('Não foi possível salvar a observação.');
+                }
+            })
+            .fail(function () { alert('Erro de comunicação com o servidor.'); })
+            .always(function () { $input.prop('disabled', false); });
+    });
+
     // Open the linking modal and search candidates in the Cartola API
     let currentRegistrantId = null;
 

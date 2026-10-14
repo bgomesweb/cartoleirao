@@ -94,6 +94,13 @@ class Registrant
         return ['paid' => (bool) $row['paid'], 'paid_at' => $row['paid_at']];
     }
 
+    public static function updateNotes(int $id, string $notes): void
+    {
+        $notes = mb_substr(trim($notes), 0, 255);
+        $stmt = Connection::get()->prepare('UPDATE registrants SET notes = ? WHERE id = ?');
+        $stmt->execute([$notes !== '' ? $notes : null, $id]);
+    }
+
     public static function linkCartolaTeam(int $id, int $teamId, string $teamName, string $teamSlug): void
     {
         $pdo = Connection::get();

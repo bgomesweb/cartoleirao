@@ -106,6 +106,21 @@ if ($league && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     error_log('[inscricao] falha ao enviar e-mail de confirmação: ' . $e->getMessage());
                 }
 
+                // Notifies the admin about the new registration (same failure rule).
+                try {
+                    (new EmailService())->sendAdminNewRegistration(
+                        [
+                            'name' => $name,
+                            'email' => $email,
+                            'whatsapp' => $whatsapp,
+                            'cartola_team_name' => $cartolaTeamName,
+                        ],
+                        $league
+                    );
+                } catch (\Throwable $e) {
+                    error_log('[inscricao] falha ao enviar e-mail para o admin: ' . $e->getMessage());
+                }
+
                 $success = true;
             } catch (\InvalidArgumentException $e) {
                 $error = $e->getMessage();
