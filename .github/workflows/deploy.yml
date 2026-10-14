@@ -1,0 +1,56 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.CPANEL_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${{ secrets.CPANEL_SSH_PORT }}" "${{ secrets.CPANEL_SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      # CPANEL_APP_PATH = raiz do projeto no servidor (ex: /home/usuario/cartoleirao),
+      # cujo public/ é o Document Root. Arquivos excluídos aqui também ficam
+      # protegidos contra o --delete (config.local.php, vendor, logs).
+      - name: Upload project
+        run: |
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '.idea' \
+            --exclude '.env' \
+            --exclude 'docker' \
+            --exclude 'docker-compose.yml' \
+            --exclude 'config.local.php' \
+            --exclude 'config.local.php.*' \
+            --exclude 'vendor' \
+            --exclude '*.log' \
+            --exclude 'error_log' \
+            --exclude 'cgi-bin' \
+            --exclude '.well-known' \
+            -e "ssh -p ${{ secrets.CPANEL_SSH_PORT }} -i ~/.ssh/deploy_key" \
+            ./ \
+            "${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}:${{ secrets.CPANEL_APP_PATH }}/"
+
+      - name: Regenerate autoload
+        env:
+          COMPOSER_BIN: ${{ secrets.CPANEL_COMPOSER_BIN }}
+          APP_PATH: ${{ secrets.CPANEL_APP_PATH }}
+        run: |
+          ssh -p "${{ secrets.CPANEL_SSH_PORT }}" -i ~/.ssh/deploy_key \
+            "${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}" \
+            "set -e; cd '$APP_PATH'; '$COMPOSER_BIN' dump-autoload --no-dev --optimize --no-interaction"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
