@@ -10,7 +10,17 @@ use Cartoleirao\Models\Registrant;
 use Cartoleirao\Services\CartolaApiClient;
 use Cartoleirao\Services\EmailService;
 
+// Prazo final das inscrições (inclusive o dia 26/01/2027).
+$registrationDeadline = new DateTimeImmutable('2027-01-26 23:59:59', new DateTimeZone('America/Sao_Paulo'));
+$deadlinePassed = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo')) > $registrationDeadline;
+
 $leagues = League::all();
+foreach ($leagues as &$l) {
+    if ($deadlinePassed) {
+        $l['registrations_open'] = 0;
+    }
+}
+unset($l);
 $defaultLeague = League::default();
 
 $chosenLeagueId = (int) ($_POST['liga_id'] ?? $_GET['liga_id'] ?? ($defaultLeague['id'] ?? 0));
@@ -24,7 +34,7 @@ foreach ($leagues as $l) {
 }
 // fallback: if the id didn't match any valid league, fall back to the default one
 if (!$league) {
-    $league = $defaultLeague;
+    $league = $leagues[0] ?? null;
 }
 
 $error = null;
@@ -112,6 +122,7 @@ require __DIR__ . '/includes/header.php';
         <div class="card card-inscricao">
             <div class="card-header">
                 <h3 class="mb-1"><i class="fa-solid fa-futbol me-1"></i> Inscreva-se</h3>
+                <div class="small">Inscrições até 26/01/2027</div>
             </div>
 
             <?php if (count($leagues) > 1): ?>

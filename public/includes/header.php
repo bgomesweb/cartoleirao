@@ -23,7 +23,7 @@ $bonusRoundsModal = BonusRound::forCurrentRound($market['current_round'] ?? null
 <body>
 <nav class="navbar navbar-cartoleirao navbar-expand-lg">
     <div class="container">
-        <a class="navbar-brand d-flex align-items-center" href="index.php">
+        <a class="navbar-brand d-flex align-items-center" href="inscricao.php">
             <img src="assets/img/logo.png" alt="Cartoleirão">
             Cartoleirão
             <?php if ($market): ?>
@@ -37,9 +37,6 @@ $bonusRoundsModal = BonusRound::forCurrentRound($market['current_round'] ?? null
         </button>
         <div class="collapse navbar-collapse" id="navMenu">
             <div class="navbar-nav ms-auto">
-                <a class="nav-link <?= $currentPage === 'index.php' ? 'active-link' : '' ?>" href="index.php">Início</a>
-                <a class="nav-link <?= $currentPage === 'jogos.php' ? 'active-link' : '' ?>" href="jogos.php">Jogos</a>
-                <a class="nav-link <?= $currentPage === 'classificacao.php' ? 'active-link' : '' ?>" href="classificacao.php">Classificação</a>
                 <a class="nav-link <?= $currentPage === 'inscricao.php' ? 'active-link' : '' ?>" href="inscricao.php">
                     <span class="badge bg-warning text-dark">Inscreva-se</span>
                 </a>
