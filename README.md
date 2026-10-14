@@ -4,7 +4,7 @@ Sistema de gestão de ligas do Cartola FC (Campeonato Brasileiro Série A):
 inscrições, jogos da rodada e classificação, integrado com a API pública do
 Cartola FC (`api.cartola.globo.com`).
 
-Stack: PHP 8.5, MySQL 8, jQuery + Bootstrap 5, Docker.
+Stack: PHP 8.4, MySQL 8, jQuery + Bootstrap 5, Docker.
 
 ---
 
@@ -44,13 +44,12 @@ chmod +x warden && sudo mv warden /usr/local/bin/warden
 
 warden svc up
 cd ~/projects/cartoleirao
-warden env-init cartoleirao php --php-version=8.5
+warden env-init cartoleirao php --php-version=8.4
 warden env up
 warden signal-trust
 ```
 
-> Se o template PHP do Warden ainda não tiver PHP 8.5 disponível (lançamento
-> recente), use a **Opção B** abaixo — o `docker-compose.yml` deste repo já
+> Se o template PHP do Warden não tiver PHP 8.4 disponível, use a **Opção B** abaixo — o `docker-compose.yml` deste repo já
 > resolve tudo sozinho, sem depender do Warden.
 
 ### Opção B — docker compose direto (recomendado por enquanto)
@@ -65,7 +64,7 @@ Isso sobe:
 
 | Serviço | URL |
 |---|---|
-| App (PHP 8.5 + Apache) | http://localhost:8080 |
+| App (PHP 8.4 + Apache) | http://localhost:8080 |
 | phpMyAdmin | http://localhost:8081 |
 | MySQL | localhost:3306 |
 

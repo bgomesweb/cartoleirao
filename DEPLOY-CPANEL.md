@@ -7,10 +7,8 @@ comum (cPanel), do zero.
 
 ## 0. Antes de começar — o que você precisa saber
 
-- **PHP 8.5**: o código foi escrito pra PHP 8.5. Se sua hospedagem ainda não
-  tiver essa versão disponível no seletor de PHP, veja o passo 2 — na pior
-  das hipóteses, o código roda em PHP 8.1+ sem mudança nenhuma (não usa
-  nenhum recurso exclusivo do 8.5).
+- **PHP 8.4**: o projeto exige PHP 8.4 ou superior (`composer.json`). Selecione
+  essa versão no seletor de PHP da hospedagem (passo 2).
 - **Estrutura do projeto**: a pasta `public/` é a ÚNICA que deve ficar
   acessível pelo navegador. As pastas `src/`, `database/`, `scripts/`,
   `cron/` e o arquivo `config.local.php` (com a senha do banco) **nunca**
@@ -47,8 +45,7 @@ Host:    localhost   (quase sempre é "localhost" em cPanel)
 No cPanel, vá em **"MultiPHP Manager"** (ou "Select PHP Version").
 
 1. Selecione o domínio/subdomínio onde vai instalar.
-2. Escolha PHP **8.5** se disponível (ou a mais recente disponível, 8.1+
-   funciona sem alterar nada no código).
+2. Escolha PHP **8.4** (ou superior, se disponível).
 3. Clique em "Options" / no ícone de engrenagem ao lado da versão pra abrir o
    **"MultiPHP INI Editor"** e confirme que estão habilitadas as extensões:
    `pdo_mysql`, `curl`, `mbstring`, `intl`, `json`, `mysqli` (geralmente já
