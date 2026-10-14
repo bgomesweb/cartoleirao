@@ -153,6 +153,15 @@ class OfficialLeagueTeam
         return $stmt->fetchAll();
     }
 
+    public static function countByLeague(int $leagueId): int
+    {
+        $pdo = Connection::get();
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM official_league_teams WHERE league_id = ? AND season_id = ?');
+        $stmt->execute([$leagueId, Season::activeId()]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
     public static function countUnmatched(int $leagueId): int
     {
         $pdo = Connection::get();

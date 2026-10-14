@@ -7,7 +7,9 @@ require_once __DIR__ . '/../src/Config/bootstrap.php';
 \Cartoleirao\Models\Season::guardPublicPage(false);
 
 use Cartoleirao\Models\League;
-use Cartoleirao\Models\Score;
+use Cartoleirao\Models\MarketStatus;
+use Cartoleirao\Models\OfficialLeagueTeam;
+use Cartoleirao\Models\Season;
 
 /**
  * Recognizes lines in the "1º Campeão: R$950,00" pattern inside the free-text
@@ -31,87 +33,58 @@ function parsePrizeDescription(string $text): array
     return $result;
 }
 
-/**
- * Builds the text that goes along with the highlights image when sharing.
- */
-function buildHighlightsShareText(string $leagueName, int $roundNumber, array $highlights): string
-{
-    $lines = ["🏆 *Destaques da Rodada {$roundNumber}*", $leagueName, ''];
-
-    foreach ($highlights as $i => $h) {
-        $position = $i + 1;
-        $prefix = match ($position) {
-            1 => '🥇',
-            2 => '🥈',
-            3 => '🥉',
-            default => "{$position}º",
-        };
-        $teamName = $h['team_name'] ?: ('Time ' . $h['cartola_team_id']);
-        $points = number_format((float) $h['points'], 2, ',', '.');
-        $lines[] = "{$prefix} {$teamName} — {$points} pts";
-    }
-
-    $lines[] = '';
-    $lines[] = '⚽ Cartoleirão';
-
-    return implode("\n", $lines);
-}
-
 $leagues = [];
-$classicLeague = null;
-$highlights = [];
-$highlightsRound = null;
+$teamCounts = [];
+$season = null;
 $dbError = null;
-$highlightsShareText = null;
 
 try {
     $leagues = League::all();
+    $season = Season::active();
     foreach ($leagues as $league) {
-        if ((int) $league['is_default'] === 1) {
-            $classicLeague = $league;
-            break;
-        }
-    }
-
-    if ($classicLeague) {
-        $highlightsRound = Score::latestRoundWithData((int) $classicLeague['id']);
-        if ($highlightsRound) {
-            $highlights = Score::highlightsForRound((int) $classicLeague['id'], (int) $highlightsRound['id'], 8);
-            if (!empty($highlights)) {
-                $highlightsShareText = buildHighlightsShareText(
-                    $classicLeague['name'],
-                    (int) $highlightsRound['number'],
-                    $highlights
-                );
-            }
-        }
+        $teamCounts[(int) $league['id']] = OfficialLeagueTeam::countByLeague((int) $league['id']);
     }
 } catch (\Throwable $e) {
     $dbError = 'Não foi possível carregar os dados agora. Tente novamente em instantes.';
 }
 
+$market = MarketStatus::current();
+$totalTeams = array_sum($teamCounts);
+
 $pageTitle = 'Início';
 require __DIR__ . '/includes/header.php';
 ?>
 
-<section class="hero-cartoleirao">
+<section class="hero">
     <div class="container">
-    <?php if ($dbError): ?>
-        <div class="alert alert-warning"><?= e($dbError) ?></div>
-    <?php endif; ?>
-    </div>
-    <div class="container d-flex flex-column flex-lg-row align-items-center gap-4">
-        <div class="flex-grow-1">
-            <h1 class="mb-3">Cartola, futebol e resenha ⚽🍻</h1>
-            <p class="subtitulo mb-4">
-                O Cartoleirão reúne a galera pra brigar ponto a ponto no Cartola FC
-                durante todo o Brasileirão Série A — com ranking em tempo real,
-                zoeira garantida no grupo e prêmio pra quem terminar no topo.
-            </p>
-            <a href="classificacao.php" class="btn btn-lg btn-cartoleirao">Ver classificação</a>
-        </div>
-        <div class="text-center">
-            <svg class="hero-ball" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <?php if ($dbError): ?>
+            <div class="alert alert-warning"><?= e($dbError) ?></div>
+        <?php endif; ?>
+        <div class="hero-inner">
+            <div class="flex-grow-1">
+                <span class="eyebrow"><i class="fa-solid fa-trophy"></i> Temporada <?= (int) ($season['year'] ?? date('Y')) ?></span>
+                <h1>Cartola, futebol e resenha ⚽🍻</h1>
+                <p class="lead-text">
+                    A galera brigando ponto a ponto no Cartola FC durante todo o Brasileirão Série A,
+                    com ranking atualizado, zoeira garantida e prêmio pra quem terminar no topo.
+                </p>
+                <div class="hero-actions">
+                    <a href="classificacao.php" class="btn btn-cartoleirao"><i class="fa-solid fa-ranking-star me-1"></i> Ver classificação</a>
+                    <a href="jogos.php" class="btn btn-ghost"><i class="fa-solid fa-futbol me-1"></i> Jogos da rodada</a>
+                </div>
+                <div class="hero-stats">
+                    <?php if ($totalTeams > 0): ?>
+                        <div class="hero-stat"><strong><?= $totalTeams ?></strong><span>times na disputa</span></div>
+                    <?php endif; ?>
+                    <?php if (!empty($market['current_round'])): ?>
+                        <div class="hero-stat"><strong><?= (int) $market['current_round'] ?></strong><span>rodada atual</span></div>
+                    <?php endif; ?>
+                    <?php if (count($leagues) > 0): ?>
+                        <div class="hero-stat"><strong><?= count($leagues) ?></strong><span><?= count($leagues) === 1 ? 'liga' : 'ligas' ?></span></div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <svg class="hero-ball d-none d-sm-block" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <circle cx="100" cy="100" r="95" fill="#ffffff"/>
                 <g fill="#00165a">
                     <polygon points="100,55 122,71 113,97 87,97 78,71"/>
@@ -128,135 +101,98 @@ require __DIR__ . '/includes/header.php';
     </div>
 </section>
 
-<div class="container py-5">
-    <h2 class="page-title-home justify-content-center mb-4">Premiação das Ligas</h2>
-    <div class="row g-4 justify-content-center">
-        <?php foreach ($leagues as $league): ?>
-            <?php
-            $structuredPrizes = [];
-            foreach (range(1, 8) as $i) {
-                $amount = $league["prize_{$i}"] ?? null;
-                if ($amount !== null && (float) $amount > 0) {
-                    $structuredPrizes[$i] = ['label' => "{$i}º Colocado", 'amount' => (float) $amount];
-                }
-            }
-
-            // Fallback: if nobody has filled in the structured fields yet,
-            // try to recognize the "Nº Label: R$amount" pattern from the
-            // free-text field (so whatever was typed before keeps working
-            // with the new look, without having to retype it in the admin panel).
-            if (empty($structuredPrizes) && !empty($league['prize_description'])) {
-                $structuredPrizes = parsePrizeDescription($league['prize_description']);
-            }
-
-            $total = array_sum(array_column($structuredPrizes, 'amount'));
-            ?>
-            <div class="col-md-5">
-                <div class="premiacao-card-v2">
-                    <div class="premiacao-v2-header">
-                        <span class="premiacao-v2-icon">🏆</span>
-                        <div>
-                            <div class="premiacao-v2-titulo">Premiação</div>
-                            <div class="premiacao-v2-liga"><?= e($league['name']) ?></div>
-                        </div>
-                    </div>
-
-                    <?php if (empty($structuredPrizes)): ?>
-                        <p class="text-center text-muted my-4">
-                            <?= !empty($league['prize_description']) ? nl2br(e($league['prize_description'])) : 'Premiação a definir pelo organizador.' ?>
-                        </p>
-                    <?php else: ?>
-                        <div class="premiacao-v2-lista">
-                            <?php
-                            $medals = [1 => '🥇', 2 => '🥈', 3 => '🥉'];
-                            $classes = [1 => 'ouro', 2 => 'prata', 3 => 'bronze'];
-                            foreach ($structuredPrizes as $position => $data):
-                                $class = $classes[$position] ?? 'padrao';
-                            ?>
-                                <div class="premio-v2-row <?= $class ?>">
-                                    <span class="premio-v2-badge"><?= $medals[$position] ?? $position ?></span>
-                                    <span class="premio-v2-label"><?= e($data['label']) ?></span>
-                                    <span class="premio-v2-valor">R$ <?= number_format($data['amount'], 2, ',', '.') ?></span>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-
-                        <div class="premio-v2-total">
-                            <span class="text-muted small">Total em prêmios</span>
-                            <span class="premio-v2-total-valor">R$ <?= number_format($total, 2, ',', '.') ?></span>
-                        </div>
-                    <?php endif; ?>
-
-                    <div class="premiacao-v2-footer">
-                        <?php if (!empty($league['registration_fee'])): ?>
-                            <span class="text-muted small">Inscrição: R$ <?= number_format((float) $league['registration_fee'], 2, ',', '.') ?></span>
-                        <?php endif; ?>
-                    </div>
-                </div>
+<section class="section pb-0">
+    <div class="container">
+        <div class="row g-3">
+            <div class="col-12 col-md-6">
+                <a href="classificacao.php" class="shortcut">
+                    <span class="ico"><i class="fa-solid fa-ranking-star"></i></span>
+                    <div><strong>Classificação</strong><span>Geral e rodada a rodada</span></div>
+                    <i class="fa-solid fa-chevron-right go"></i>
+                </a>
             </div>
-        <?php endforeach; ?>
-    </div>
-</div>
-
-<div class="container pb-5">
-    <div class="destaques-topo mb-4">
-        <h2 class="mb-0">
-            Destaques da Rodada
-            <?php if ($highlightsRound): ?>
-                <small class="text-muted fs-6">(rodada <?= (int) $highlightsRound['number'] ?> — <?= e($classicLeague['name']) ?>)</small>
-            <?php endif; ?>
-        </h2>
-        <?php if ($highlightsShareText): ?>
-            <button type="button" class="btn btn-whatsapp btn-sm"
-                    data-compartilhar-imagem="#captura-destaques"
-                    data-titulo="Destaques da Rodada <?= (int) $highlightsRound['number'] ?> — Cartoleirão"
-                    data-texto="<?= e($highlightsShareText) ?>"
-                    data-arquivo="destaques-rodada-<?= (int) $highlightsRound['number'] ?>">
-                <i class="fa-brands fa-whatsapp"></i> Compartilhar
-            </button>
-        <?php endif; ?>
-    </div>
-
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <?php if (empty($highlights)): ?>
-                <p class="text-center text-muted">
-                    Ainda não há pontuações registradas. Assim que a rodada fechar,
-                    os destaques aparecem aqui.
-                </p>
-            <?php else: ?>
-                <div id="captura-destaques" class="captura-card">
-                    <div class="captura-card-header">
-                        <span class="captura-card-trofeu">🏆</span>
-                        <div>
-                            <div class="captura-card-titulo">Destaques da Rodada <?= (int) $highlightsRound['number'] ?></div>
-                            <div class="captura-card-liga"><?= e($classicLeague['name']) ?></div>
-                        </div>
-                    </div>
-                    <div class="captura-card-corpo">
-                        <?php foreach ($highlights as $i => $h): ?>
-                            <div class="destaque-item">
-                                <div class="d-flex align-items-center">
-                                    <span class="destaque-posicao"><?= $i + 1 ?></span>
-                                    <?php if (!empty($h['crest_url'])): ?>
-                                        <img src="<?= e($h['crest_url']) ?>" class="escudo-time me-2" alt="">
-                                    <?php endif; ?>
-                                    <div>
-                                        <div class="fw-semibold"><?= e($h['team_name'] ?: ('Time ' . $h['cartola_team_id'])) ?></div>
-                                        <?php if (!empty($h['registrant_name'])): ?>
-                                            <div class="small text-muted"><?= e($h['registrant_name']) ?></div>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                                <div class="fw-bold text-success"><?= number_format((float) $h['points'], 2, ',', '.') ?> pts</div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <div class="captura-card-footer">⚽ Cartoleirão</div>
-                </div>
-            <?php endif; ?>
+            <div class="col-12 col-md-6">
+                <a href="jogos.php" class="shortcut">
+                    <span class="ico" style="background: linear-gradient(135deg, var(--cartoleirao-verde), #12926a);"><i class="fa-solid fa-futbol"></i></span>
+                    <div><strong>Jogos</strong><span>Partidas e placares da rodada</span></div>
+                    <i class="fa-solid fa-chevron-right go"></i>
+                </a>
+            </div>
         </div>
     </div>
-</div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <h2 class="section-title">Premiação das ligas</h2>
+        <div class="row g-4">
+            <?php foreach ($leagues as $league): ?>
+                <?php
+                $structuredPrizes = [];
+                foreach (range(1, 8) as $i) {
+                    $amount = $league["prize_{$i}"] ?? null;
+                    if ($amount !== null && (float) $amount > 0) {
+                        $structuredPrizes[$i] = ['label' => "{$i}º colocado", 'amount' => (float) $amount];
+                    }
+                }
+
+                // Fallback: if nobody has filled in the structured fields yet,
+                // try to recognize the "Nº Label: R$amount" pattern from the
+                // free-text field (so whatever was typed before keeps working
+                // with the new look, without having to retype it in the admin panel).
+                if (empty($structuredPrizes) && !empty($league['prize_description'])) {
+                    $structuredPrizes = parsePrizeDescription($league['prize_description']);
+                }
+
+                $total = array_sum(array_column($structuredPrizes, 'amount'));
+                $medals = [1 => '🥇', 2 => '🥈', 3 => '🥉'];
+                $classes = [1 => 'ouro', 2 => 'prata', 3 => 'bronze'];
+                $teams = $teamCounts[(int) $league['id']] ?? 0;
+                ?>
+                <div class="col-12 col-md-6">
+                    <article class="prize-card">
+                        <div class="prize-head">
+                            <span class="prize-icon">🏆</span>
+                            <div>
+                                <h3><?= e($league['name']) ?></h3>
+                                <small><?= $league['type'] === 'classic' ? 'Liga clássica' : 'Pontos corridos' ?></small>
+                            </div>
+                        </div>
+
+                        <?php if (empty($structuredPrizes)): ?>
+                            <p class="text-center text-muted my-4">
+                                <?= !empty($league['prize_description']) ? nl2br(e($league['prize_description'])) : 'Premiação a definir pelo organizador.' ?>
+                            </p>
+                        <?php else: ?>
+                            <div class="prize-list">
+                                <?php foreach ($structuredPrizes as $position => $data): ?>
+                                    <div class="prize-row <?= $classes[$position] ?? '' ?>">
+                                        <span class="badge-pos"><?= $medals[$position] ?? $position . 'º' ?></span>
+                                        <span class="label"><?= e($data['label']) ?></span>
+                                        <span class="value">R$ <?= number_format($data['amount'], 2, ',', '.') ?></span>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+
+                            <div class="prize-total">
+                                <span class="text-muted small fw-semibold">Total em prêmios</span>
+                                <strong>R$ <?= number_format($total, 2, ',', '.') ?></strong>
+                            </div>
+                        <?php endif; ?>
+
+                        <div class="prize-foot">
+                            <?php if ($teams > 0): ?>
+                                <span class="pill"><i class="fa-solid fa-users"></i> <?= $teams ?> times</span>
+                            <?php endif; ?>
+                            <?php if (!empty($league['registration_fee'])): ?>
+                                <span class="pill pill-orange"><i class="fa-solid fa-ticket"></i> Inscrição R$ <?= number_format((float) $league['registration_fee'], 2, ',', '.') ?></span>
+                            <?php endif; ?>
+                        </div>
+                    </article>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</section>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

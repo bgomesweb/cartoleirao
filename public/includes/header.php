@@ -9,6 +9,11 @@ use Cartoleirao\Models\Season;
 $currentPage = basename($_SERVER['SCRIPT_NAME']);
 // Com inscrições abertas o site mostra só a inscrição; fechadas, só o conteúdo da temporada.
 $registrationMode = Season::registrationsOpen();
+$navItems = [
+    ['index.php', 'Início', 'fa-house'],
+    ['jogos.php', 'Jogos', 'fa-futbol'],
+    ['classificacao.php', 'Classificação', 'fa-ranking-star'],
+];
 $market = MarketStatus::current();
 $bonusRoundsModal = BonusRound::forCurrentRound($market['current_round'] ?? null);
 
@@ -17,42 +22,48 @@ $bonusRoundsModal = BonusRound::forCurrentRound($market['current_round'] ?? null
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#00165a">
     <title><?= isset($pageTitle) ? e($pageTitle) . ' — ' : '' ?>Cartoleirão</title>
     <link rel="icon" type="image/png" href="assets/img/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css?v=<?= @filemtime(__DIR__ . '/../assets/css/style.css') ?: time() ?>">
 </head>
-<body>
-<nav class="navbar navbar-cartoleirao navbar-expand-lg">
-    <div class="container">
-        <a class="navbar-brand d-flex align-items-center" href="<?= $registrationMode ? 'inscricao.php' : 'index.php' ?>">
-            <img src="assets/img/logo.png" alt="Cartoleirão">
-            Cartoleirão
-            <?php if ($market): ?>
-                <span class="badge-mercado badge-mercado-<?= e($market['class']) ?>" title="Rodada <?= (int) ($market['current_round'] ?? 0) ?>">
-                    <?= e($market['label']) ?>
-                </span>
-            <?php endif; ?>
+<body class="<?= $registrationMode ? '' : 'has-tabbar' ?>">
+<header class="site-header">
+    <div class="container site-header-inner">
+        <a class="brand" href="<?= $registrationMode ? 'inscricao.php' : 'index.php' ?>">
+            <img src="assets/img/logo.png" alt="">
+            <span>Cartoleirão</span>
         </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navMenu">
-            <div class="navbar-nav ms-auto">
-                <?php if ($registrationMode): ?>
-                    <a class="nav-link <?= $currentPage === 'inscricao.php' ? 'active-link' : '' ?>" href="inscricao.php">
-                        <span class="badge bg-warning text-dark">Inscreva-se</span>
-                    </a>
-                <?php else: ?>
-                    <a class="nav-link <?= $currentPage === 'index.php' ? 'active-link' : '' ?>" href="index.php">Início</a>
-                    <a class="nav-link <?= $currentPage === 'jogos.php' ? 'active-link' : '' ?>" href="jogos.php">Jogos</a>
-                    <a class="nav-link <?= $currentPage === 'classificacao.php' ? 'active-link' : '' ?>" href="classificacao.php">Classificação</a>
-                <?php endif; ?>
-            </div>
-        </div>
+        <?php if ($market): ?>
+            <span class="badge-mercado badge-mercado-<?= e($market['class']) ?>" title="Rodada <?= (int) ($market['current_round'] ?? 0) ?>">
+                <?= e($market['label']) ?>
+            </span>
+        <?php endif; ?>
+
+        <?php if (!$registrationMode): ?>
+            <nav class="site-nav d-none d-md-flex" aria-label="Principal">
+                <?php foreach ($navItems as [$file, $label, $icon]): ?>
+                    <a href="<?= $file ?>" class="<?= $currentPage === $file ? 'active' : '' ?>" <?= $currentPage === $file ? 'aria-current="page"' : '' ?>><?= $label ?></a>
+                <?php endforeach; ?>
+            </nav>
+        <?php endif; ?>
     </div>
-</nav>
+</header>
+
+<?php if (!$registrationMode): ?>
+    <nav class="tabbar d-md-none" aria-label="Principal">
+        <?php foreach ($navItems as [$file, $label, $icon]): ?>
+            <a href="<?= $file ?>" class="<?= $currentPage === $file ? 'active' : '' ?>" <?= $currentPage === $file ? 'aria-current="page"' : '' ?>>
+                <i class="fa-solid <?= $icon ?>"></i><?= $label ?>
+            </a>
+        <?php endforeach; ?>
+    </nav>
+<?php endif; ?>
 
 <?php if (!empty($bonusRoundsModal)): ?>
     <div class="modal fade" id="modalRodadaBonus" tabindex="-1" aria-hidden="true"

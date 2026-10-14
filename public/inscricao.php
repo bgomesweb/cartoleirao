@@ -146,102 +146,112 @@ $pageTitle = 'Inscrição';
 require __DIR__ . '/includes/header.php';
 ?>
 
+<?php
+$activeSeason = Season::active();
+$deadlineText = !empty($activeSeason['registration_deadline'])
+    ? 'Inscrições até ' . (new DateTime($activeSeason['registration_deadline']))->format('d/m/Y')
+    : 'Garanta sua vaga na temporada ' . (int) ($activeSeason['year'] ?? date('Y'));
+?>
     <div class="container">
-        <div class="card card-inscricao">
-            <div class="card-header">
-                <h3 class="mb-1"><i class="fa-solid fa-futbol me-1"></i> Inscreva-se</h3>
-                <div class="small">Inscrições até 26/01/2027</div>
-            </div>
-
-            <?php if (count($leagues) > 1): ?>
-                <div class="liga-pills-wrap">
-                    <?php foreach ($leagues as $l): ?>
-                        <a href="inscricao.php?liga_id=<?= (int) $l['id'] ?>"
-                           class="liga-pill <?= (int) $league['id'] === (int) $l['id'] ? 'ativo' : '' ?> <?= empty($l['registrations_open']) ? 'fechada' : '' ?>">
-                            <?= e($l['name']) ?>
-                            <?php if (empty($l['registrations_open'])): ?>
-                                <i class="fa-solid fa-lock small ms-1"></i>
-                            <?php endif; ?>
-                        </a>
-                    <?php endforeach; ?>
+        <div class="signup-wrap">
+            <div class="signup-card">
+                <div class="signup-head">
+                    <span class="eyebrow"><i class="fa-solid fa-futbol"></i> Temporada <?= (int) ($activeSeason['year'] ?? date('Y')) ?></span>
+                    <h1>Inscreva-se</h1>
+                    <p><?= e($deadlineText) ?></p>
                 </div>
-            <?php endif; ?>
 
-            <div class="card-body p-4">
-
-                <?php if ($success): ?>
-                    <div class="alert alert-success">
-                        <strong>Inscrição recebida!</strong> Enviamos um e-mail com as instruções de
-                        pagamento pra confirmar sua participação. Não achou? Confere a caixa de spam.
+                <?php if (count($leagues) > 1): ?>
+                    <div class="liga-pills-wrap">
+                        <?php foreach ($leagues as $l): ?>
+                            <a href="inscricao.php?liga_id=<?= (int) $l['id'] ?>"
+                               class="liga-pill <?= (int) $league['id'] === (int) $l['id'] ? 'ativo' : '' ?> <?= empty($l['registrations_open']) ? 'fechada' : '' ?>">
+                                <?= e($l['name']) ?>
+                                <?php if (empty($l['registrations_open'])): ?>
+                                    <i class="fa-solid fa-lock small ms-1"></i>
+                                <?php endif; ?>
+                            </a>
+                        <?php endforeach; ?>
                     </div>
-                    <a href="index.php" class="btn btn-cartoleirao w-100">Voltar para o início</a>
-
-                <?php elseif ($error): ?>
-                    <div class="alert alert-danger"><?= e($error) ?></div>
-                    <?php if (!empty($league['registrations_open'])): ?>
-                        <a href="inscricao.php?liga_id=<?= (int) $league['id'] ?>" class="btn btn-cartoleirao w-100">Tentar novamente</a>
-                    <?php endif; ?>
-
-                <?php elseif (empty($league['registrations_open'])): ?>
-                    <div class="alert alert-warning mb-0">
-                        <i class="fa-solid fa-lock"></i> As inscrições para <strong><?= e($league['name']) ?></strong>
-                        estão encerradas no momento.
-                    </div>
-
-                <?php else: ?>
-                    <div id="erro-cliente" class="alert alert-danger d-none"></div>
-
-                    <?php if (!empty($league['registration_fee'])): ?>
-                        <div class="valor-inscricao-tag">
-                            Inscrição: <strong>R$ <?= number_format((float) $league['registration_fee'], 2, ',', '.') ?></strong>
-                        </div>
-                    <?php endif; ?>
-
-                    <form id="form-inscricao" method="post" novalidate>
-                        <?= Csrf::field() ?>
-                        <input type="hidden" name="liga_id" value="<?= (int) $league['id'] ?>">
-
-                        <!-- honeypot anti-spam, mantido oculto via CSS -->
-                        <div style="position:absolute; left:-9999px;" aria-hidden="true">
-                            <label for="website">Deixe em branco</label>
-                            <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="nome" class="form-label">Nome completo *</label>
-                            <input type="text" class="form-control" id="nome" name="nome" required
-                                   value="<?= e($_POST['nome'] ?? '') ?>">
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="email" class="form-label">E-mail *</label>
-                            <input type="email" class="form-control" id="email" name="email" required
-                                   value="<?= e($_POST['email'] ?? '') ?>">
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="whatsapp" class="form-label">WhatsApp (com DDD) *</label>
-                            <input type="text" class="form-control" id="whatsapp" name="whatsapp" required
-                                   placeholder="(16) 99999-9999"
-                                   value="<?= e($_POST['whatsapp'] ?? '') ?>">
-                        </div>
-
-                        <div class="mb-4">
-                            <label for="nome_time_cartola" class="form-label">Nome do seu time no Cartola FC</label>
-                            <input type="text" class="form-control" id="nome_time_cartola" name="nome_time_cartola"
-                                   placeholder="Opcional"
-                                   value="<?= e($_POST['nome_time_cartola'] ?? '') ?>">
-                            <div class="form-text">
-                                Se informar, tentamos vincular automaticamente ao seu time real do Cartola
-                                pra já começar a pontuar. Se não souber o nome exato, pode deixar em branco
-                                e o organizador vincula depois.
-                            </div>
-                        </div>
-
-                        <button type="submit" class="btn btn-cartoleirao w-100">Confirmar inscrição</button>
-                    </form>
                 <?php endif; ?>
 
+                <div class="signup-body">
+
+                    <?php if ($success): ?>
+                        <div class="alert alert-success">
+                            <strong>Inscrição recebida!</strong> Enviamos um e-mail com as instruções de
+                            pagamento pra confirmar sua participação. Não achou? Confere a caixa de spam.
+                        </div>
+                        <a href="inscricao.php" class="btn btn-cartoleirao w-100">Voltar</a>
+
+                    <?php elseif ($error): ?>
+                        <div class="alert alert-danger"><?= e($error) ?></div>
+                        <?php if (!empty($league['registrations_open'])): ?>
+                            <a href="inscricao.php?liga_id=<?= (int) $league['id'] ?>" class="btn btn-cartoleirao w-100">Tentar novamente</a>
+                        <?php endif; ?>
+
+                    <?php elseif (empty($league['registrations_open'])): ?>
+                        <div class="alert alert-warning mb-0">
+                            <i class="fa-solid fa-lock"></i> As inscrições para <strong><?= e($league['name']) ?></strong>
+                            estão encerradas no momento.
+                        </div>
+
+                    <?php else: ?>
+                        <div id="erro-cliente" class="alert alert-danger d-none"></div>
+
+                        <?php if (!empty($league['registration_fee'])): ?>
+                            <div class="fee-tag">
+                                <span>Valor da inscrição</span>
+                                <strong>R$ <?= number_format((float) $league['registration_fee'], 2, ',', '.') ?></strong>
+                            </div>
+                        <?php endif; ?>
+
+                        <form id="form-inscricao" method="post" novalidate>
+                            <?= Csrf::field() ?>
+                            <input type="hidden" name="liga_id" value="<?= (int) $league['id'] ?>">
+
+                            <!-- honeypot anti-spam, mantido oculto via CSS -->
+                            <div style="position:absolute; left:-9999px;" aria-hidden="true">
+                                <label for="website">Deixe em branco</label>
+                                <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="nome" class="form-label">Nome completo *</label>
+                                <input type="text" class="form-control" id="nome" name="nome" required autocomplete="name"
+                                       value="<?= e($_POST['nome'] ?? '') ?>">
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="email" class="form-label">E-mail *</label>
+                                <input type="email" class="form-control" id="email" name="email" required autocomplete="email" inputmode="email"
+                                       value="<?= e($_POST['email'] ?? '') ?>">
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="whatsapp" class="form-label">WhatsApp (com DDD) *</label>
+                                <input type="tel" class="form-control" id="whatsapp" name="whatsapp" required autocomplete="tel" inputmode="tel"
+                                       placeholder="(16) 99999-9999"
+                                       value="<?= e($_POST['whatsapp'] ?? '') ?>">
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="nome_time_cartola" class="form-label">Nome do seu time no Cartola FC</label>
+                                <input type="text" class="form-control" id="nome_time_cartola" name="nome_time_cartola"
+                                       placeholder="Opcional"
+                                       value="<?= e($_POST['nome_time_cartola'] ?? '') ?>">
+                                <div class="form-text">
+                                    Se informar, tentamos vincular automaticamente ao seu time real do Cartola
+                                    pra já começar a pontuar. Se não souber o nome exato, pode deixar em branco
+                                    e o organizador vincula depois.
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-cartoleirao w-100">Confirmar inscrição</button>
+                        </form>
+                    <?php endif; ?>
+
+                </div>
             </div>
         </div>
     </div>
