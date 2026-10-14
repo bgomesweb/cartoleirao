@@ -35,6 +35,11 @@ jobs:
             --exclude 'config.local.php.*' \
             --exclude 'vendor' \
             --exclude '*.log' \
+            --exclude '*.zip' \
+            --exclude '*.bak' \
+            --exclude '*.sql.gz' \
+            --exclude 'backup*' \
+            --exclude 'backups' \
             --exclude 'error_log' \
             --exclude 'cgi-bin' \
             --exclude '.well-known' \
