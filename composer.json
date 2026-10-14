@@ -3,7 +3,7 @@
     "description": "Cartoleirao league management system - registrations, games and standings via the Cartola FC API",
     "type": "project",
     "require": {
-        "php": ">=8.5",
+        "php": ">=8.4",
         "ext-pdo": "*",
         "ext-curl": "*",
         "ext-mbstring": "*"
