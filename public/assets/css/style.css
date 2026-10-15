@@ -969,3 +969,18 @@ a { color: var(--cartoleirao-navy-claro); }
     .hero-stats { gap: .5rem; }
     .hero-stat { flex: 1 1 0; min-width: 0; padding: .55rem .6rem; }
 }
+
+/* Sino de notificações de gol */
+.btn-bell {
+    background: rgba(255, 255, 255, .12);
+    border: 0;
+    color: #fff;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.btn-bell.is-on { background: #ffd23f; color: #00165a; }
+.btn-bell + .site-nav { margin-left: .5rem; }

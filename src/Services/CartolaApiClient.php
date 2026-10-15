@@ -74,6 +74,18 @@ class CartolaApiClient
         return $this->get($this->baseUrl . '/clubes');
     }
 
+    /** Games (with live score) of the round whose market is currently the "current" one. */
+    public function currentGames(): ?array
+    {
+        return $this->get($this->baseUrl . '/partidas');
+    }
+
+    /** Athletes that already have scouts in the round being played (live). */
+    public function scoredAthletes(): ?array
+    {
+        return $this->get($this->baseUrl . '/atletas/pontuados');
+    }
+
     public function gamesForRound(int $round): ?array
     {
         return $this->get($this->baseUrl . '/partidas/' . $round);

@@ -25,6 +25,10 @@ $bonusRoundsModal = BonusRound::forCurrentRound($market['current_round'] ?? null
     <meta name="theme-color" content="#00165a">
     <title><?= isset($pageTitle) ? e($pageTitle) . ' — ' : '' ?>Cartoleirão</title>
     <link rel="icon" type="image/png" href="assets/img/favicon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="assets/img/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Cartoleirão">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
@@ -43,6 +47,13 @@ $bonusRoundsModal = BonusRound::forCurrentRound($market['current_round'] ?? null
             <span class="badge-mercado badge-mercado-<?= e($market['class']) ?>" title="Rodada <?= (int) ($market['current_round'] ?? 0) ?>">
                 <?= e($market['label']) ?>
             </span>
+        <?php endif; ?>
+
+        <?php if (!$registrationMode && getenv('VAPID_PUBLIC_KEY')): ?>
+            <button type="button" id="btn-notificacoes" class="btn-bell ms-auto" data-vapid="<?= e(getenv('VAPID_PUBLIC_KEY')) ?>"
+                    title="Ativar notificações de gol" aria-label="Notificações de gol">
+                <i class="fa-regular fa-bell"></i>
+            </button>
         <?php endif; ?>
 
         <?php if (!$registrationMode): ?>
