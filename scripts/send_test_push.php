@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
-// Envia uma notificação de teste para todos os aparelhos inscritos.
+// Envia notificações de teste para todos os aparelhos inscritos.
+//   php send_test_push.php          -> gol, 5s depois gol anulado
+//   php send_test_push.php gol      -> só o gol
+//   php send_test_push.php anulado  -> só o gol anulado
+// Só dispara as mensagens; não mexe no estado da detecção de gols.
 require_once __DIR__ . '/../src/Config/bootstrap.php';
 
 use Cartoleirao\Models\PushSubscription;
@@ -14,6 +18,24 @@ if (!$push) {
     exit(1);
 }
 
-$total = count(PushSubscription::all());
-$ok = PushSubscription::broadcast($push, '⚽ Cartoleirão', 'Goool: Corinthians 1 x 0 Palmeiras - Yuri Alberto');
-echo "Aparelhos inscritos: {$total} — entregues: {$ok}\n";
+$mode = $argv[1] ?? 'ambos';
+$messages = [];
+if (in_array($mode, ['ambos', 'gol'], true)) {
+    $messages[] = 'Goool: Corinthians 1 x 0 Palmeiras - Yuri Alberto';
+}
+if (in_array($mode, ['ambos', 'anulado'], true)) {
+    $messages[] = 'O gol de Yuri Alberto foi anulado: Corinthians 0 x 0 Palmeiras';
+}
+if (!$messages) {
+    fwrite(STDERR, "Uso: php send_test_push.php [gol|anulado]\n");
+    exit(1);
+}
+
+echo 'Aparelhos inscritos: ' . count(PushSubscription::all()) . "\n";
+foreach ($messages as $i => $message) {
+    if ($i > 0) {
+        sleep(5);
+    }
+    $ok = PushSubscription::broadcast($push, '⚽ Cartoleirão', $message);
+    echo "{$message} — entregues: {$ok}\n";
+}
