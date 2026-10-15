@@ -109,11 +109,19 @@ require __DIR__ . '/includes/header.php';
                         <div class="cell-sub mt-1">Pago em</div>
                         <div class="paid-at"><?= e($fmt($r['paid_at'] ?? null)) ?></div>
                     </td>
-                    <td style="min-width: 220px;">
-                        <input type="text" class="form-control form-control-sm input-observacao"
-                               maxlength="255" placeholder="Adicionar observação…"
-                               data-id="<?= (int) $r['id'] ?>" data-original="<?= e($r['notes'] ?? '') ?>"
-                               value="<?= e($r['notes'] ?? '') ?>">
+                    <td style="min-width: 260px;">
+                        <div class="d-flex gap-2 align-items-center">
+                            <input type="text" class="form-control form-control-sm input-observacao"
+                                   maxlength="255" placeholder="Adicionar observação…"
+                                   data-id="<?= (int) $r['id'] ?>" data-original="<?= e($r['notes'] ?? '') ?>"
+                                   value="<?= e($r['notes'] ?? '') ?>">
+                            <button type="button" class="btn btn-sm btn-soft btn-cobrar nowrap"
+                                    data-id="<?= (int) $r['id'] ?>"
+                                    data-nome="<?= e($r['name']) ?>"
+                                    title="Enviar e-mail cobrando o pagamento">
+                                <i class="fa-regular fa-envelope"></i> Cobrar
+                            </button>
+                        </div>
                     </td>
                 </tr>
             <?php endforeach; ?>

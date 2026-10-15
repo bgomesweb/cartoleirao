@@ -51,6 +51,40 @@ class EmailService
         return $this->send($registrant['email'], $registrant['name'], $subject, $html, $text);
     }
 
+    /** Reminder sent manually by the admin to a registrant whose payment is still pending. */
+    public function sendPaymentReminder(array $registrant, array $league): bool
+    {
+        $amount = $this->formatAmount($league['registration_fee'] ?? null);
+        $pixKey = getenv('PIX_KEY') ?: (getenv('PIX_CHAVE') ?: '19998970090');
+        $pixRecipient = getenv('PIX_RECIPIENT') ?: (getenv('PIX_FAVORECIDO') ?: 'Bruno Gomes da Silva');
+        $leagueAdmin = getenv('LEAGUE_ADMIN_NAME') ?: (getenv('ADMIN_LIGA_NOME') ?: 'Bruno Gomes');
+        $adminWhatsapp = getenv('LEAGUE_ADMIN_WHATSAPP') ?: '(19) 99897-0090';
+
+        $subject = "Garanta sua vaga — {$league['name']}";
+
+        $amountText = $amount !== null ? " no valor de {$amount}" : '';
+
+        $html = '<p>Olá Cartoleiro ' . $this->e($registrant['name']) . ',</p>'
+            . '<p>Você ainda não garantiu sua vaga na liga "' . $this->e($league['name']) . '". '
+            . 'Por favor, efetue o seu pagamento' . $this->e($amountText) . ' agora mesmo via PIX:</p>'
+            . '<p style="background:#f4f6f8;padding:12px 16px;border-radius:6px;">'
+            . '<strong>Chave PIX:</strong> ' . $this->e($pixKey) . '<br>'
+            . '<strong>Favorecido:</strong> ' . $this->e($pixRecipient) . '</p>'
+            . '<p>Depois de pagar, envie o comprovante para o administrador da liga (' . $this->e($leagueAdmin) . ') '
+            . 'pelo WhatsApp ' . $this->e($adminWhatsapp) . '.</p>'
+            . '<p>Obrigado!</p>';
+
+        $text = "Olá Cartoleiro {$registrant['name']},\n\n"
+            . "Você ainda não garantiu sua vaga na liga \"{$league['name']}\". "
+            . "Por favor, efetue o seu pagamento{$amountText} agora mesmo via PIX:\n\n"
+            . "Chave PIX: {$pixKey}\n"
+            . "Favorecido: {$pixRecipient}\n\n"
+            . "Depois de pagar, envie o comprovante para o administrador da liga ({$leagueAdmin}) pelo WhatsApp {$adminWhatsapp}.\n\n"
+            . "Obrigado!\n\nEquipe Cartoleirão";
+
+        return $this->send($registrant['email'], $registrant['name'], $subject, $html, $text);
+    }
+
     /** E-mail sent when the admin marks the registration as paid (participation confirmation). */
     public function sendPaymentConfirmed(array $registrant, array $league): bool
     {

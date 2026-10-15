@@ -70,6 +70,31 @@ $(function () {
             .always(function () { $input.prop('disabled', false); });
     });
 
+    // Payment reminder e-mail
+    $(document).on('click', '.btn-cobrar', function () {
+        const $btn = $(this);
+        if (!confirm('Enviar e-mail de cobrança para ' + $btn.data('nome') + '?')) { return; }
+
+        const html = $btn.html();
+        $btn.prop('disabled', true).text('Enviando…');
+
+        $.post('ajax_enviar_cobranca.php', { id: $btn.data('id'), _csrf: csrfToken })
+            .done(function (resp) {
+                if (resp.ok) {
+                    $btn.html('<i class="fa-solid fa-check"></i> Enviado');
+                    setTimeout(function () { $btn.html(html); }, 2500);
+                } else {
+                    $btn.html(html);
+                    alert(resp.error || 'Não foi possível enviar o e-mail.');
+                }
+            })
+            .fail(function (xhr) {
+                $btn.html(html);
+                alert((xhr.responseJSON && xhr.responseJSON.error) || 'Erro de comunicação com o servidor.');
+            })
+            .always(function () { $btn.prop('disabled', false); });
+    });
+
     // Open the linking modal and search candidates in the Cartola API
     let currentRegistrantId = null;
 
