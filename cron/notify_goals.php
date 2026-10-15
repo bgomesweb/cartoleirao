@@ -6,17 +6,11 @@ declare(strict_types=1);
 require_once __DIR__ . '/../src/Config/env.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Cartoleirao\Models\Season;
 use Cartoleirao\Services\CartolaApiClient;
 use Cartoleirao\Services\GoalNotifier;
 use Cartoleirao\Services\WebPush;
 
 date_default_timezone_set('America/Sao_Paulo');
-
-if (Season::registrationsOpen()) {
-    echo "[notify_goals] inscrições abertas — nada a fazer\n";
-    exit(0);
-}
 
 // Avoids two overlapping runs (a slow API call must not duplicate notifications).
 if (!GoalNotifier::lock()) {
