@@ -285,6 +285,8 @@ CREATE TABLE IF NOT EXISTS goal_events (
     scoring_club_id INT NOT NULL,
     detected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     sent_at DATETIME NULL,
+    scorer VARCHAR(100) NULL,
+    kind VARCHAR(10) NOT NULL DEFAULT 'goal',
     KEY idx_goal_events_pending (sent_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

@@ -115,12 +115,18 @@ class GoalNotifier
                 continue;
             }
 
+            // No score published (yet/momentarily): never read it as 0 x 0, or it would look like a cancelled goal.
+            if ($g['placar_oficial_mandante'] === null || $g['placar_oficial_visitante'] === null) {
+                continue;
+            }
+
             $home = (int) $g['placar_oficial_mandante'];
             $away = (int) $g['placar_oficial_visitante'];
             $homeId = (int) $g['clube_casa_id'];
             $awayId = (int) $g['clube_visitante_id'];
 
-            // Score only ever goes up in the notifications; a drop (VAR) just resyncs the state.
+            $total += $this->cancelGoals($round, $g['partida_id'], $homeId, $awayId, $home, $away, (int) $prev['home_score'], (int) $prev['away_score']);
+
             for ($h = (int) $prev['home_score'] + 1; $h <= $home; $h++) {
                 $addEvent->execute([$round, $g['partida_id'], $homeId, $awayId, $h, (int) $prev['away_score'], $homeId]);
                 $total++;
@@ -132,6 +138,43 @@ class GoalNotifier
 
             if ($home !== (int) $prev['home_score'] || $away !== (int) $prev['away_score']) {
                 $update->execute([$home, $away, $round, $g['partida_id']]);
+            }
+        }
+
+        return $total;
+    }
+
+    /**
+     * The score went down (goal annulled, e.g. by VAR). Each goal undone becomes a 'cancel' event
+     * carrying the original scorer. A goal that was never announced is just dropped silently.
+     */
+    private function cancelGoals(int $round, int|string $gameId, int $homeId, int $awayId, int $home, int $away, int $prevHome, int $prevAway): int
+    {
+        $total = 0;
+        foreach ([[$homeId, $prevHome - $home], [$awayId, $prevAway - $away]] as [$clubId, $drop]) {
+            if ($drop <= 0) {
+                continue;
+            }
+
+            $stmt = $this->pdo->prepare("
+                SELECT id, scorer, sent_at FROM goal_events
+                WHERE round_number = ? AND cartola_game_id = ? AND scoring_club_id = ? AND kind = 'goal'
+                ORDER BY id DESC LIMIT " . (int) $drop);
+            $stmt->execute([$round, $gameId, $clubId]);
+
+            foreach ($stmt->fetchAll() as $orig) {
+                if ($orig['sent_at'] === null) {
+                    // Never announced: no need to announce the cancellation either.
+                    $this->pdo->prepare("UPDATE goal_events SET kind = 'cancelled', sent_at = NOW() WHERE id = ?")->execute([$orig['id']]);
+                    continue;
+                }
+
+                $this->pdo->prepare("UPDATE goal_events SET kind = 'cancelled' WHERE id = ?")->execute([$orig['id']]);
+                $this->pdo->prepare("
+                    INSERT INTO goal_events (round_number, cartola_game_id, home_club_id, away_club_id, home_score, away_score, scoring_club_id, scorer, kind)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'cancel')
+                ")->execute([$round, $gameId, $homeId, $awayId, $home, $away, $clubId, $orig['scorer']]);
+                $total++;
             }
         }
 
@@ -150,7 +193,7 @@ class GoalNotifier
         ');
         $events->execute([$round]);
 
-        $claimed = $this->claimedGoals($round);
+        $claimed = $this->reconcileClaimed($round, $this->claimedGoals($round), $athletes);
         $markSent = $this->pdo->prepare('UPDATE goal_events SET sent_at = NOW() WHERE id = ?');
         $claim = $this->pdo->prepare('
             INSERT INTO goal_athlete_state (round_number, athlete_id, goals, own_goals) VALUES (?, ?, ?, ?)
@@ -159,6 +202,17 @@ class GoalNotifier
 
         $sent = 0;
         foreach ($events->fetchAll() as $ev) {
+            if ($ev['kind'] === 'cancel') {
+                $markSent->execute([$ev['id']]);
+                $home = $clubNames[(int) $ev['home_club_id']] ?? 'Mandante';
+                $away = $clubNames[(int) $ev['away_club_id']] ?? 'Visitante';
+                $scoringClub = $clubNames[(int) $ev['scoring_club_id']] ?? 'time';
+                $who = $ev['scorer'] ? "O gol de {$ev['scorer']}" : "O gol do {$scoringClub}";
+                PushSubscription::broadcast($this->push, '⚽ Cartoleirão', "{$who} foi anulado: {$home} {$ev['home_score']} x {$ev['away_score']} {$away}");
+                $sent++;
+                continue;
+            }
+
             $found = $this->findScorer($ev, $athletes, $claimed);
 
             if ($found === null && (int) $ev['age'] < self::SCORER_WAIT_SECONDS) {
@@ -178,6 +232,7 @@ class GoalNotifier
 
             // Marked before sending: a failure must never turn into a repeated notification.
             $markSent->execute([$ev['id']]);
+            $this->pdo->prepare('UPDATE goal_events SET scorer = ? WHERE id = ?')->execute([$scorer, $ev['id']]);
 
             $home = $clubNames[(int) $ev['home_club_id']] ?? 'Mandante';
             $away = $clubNames[(int) $ev['away_club_id']] ?? 'Visitante';
@@ -209,6 +264,26 @@ class GoalNotifier
         }
 
         return null;
+    }
+
+    /**
+     * When a goal is annulled the athlete's scout drops; lowering our claimed count with it keeps
+     * a later goal by the same player attributable.
+     */
+    private function reconcileClaimed(int $round, array $claimed, array $athletes): array
+    {
+        $update = $this->pdo->prepare('UPDATE goal_athlete_state SET goals = ?, own_goals = ? WHERE round_number = ? AND athlete_id = ?');
+        foreach ($claimed as $id => $c) {
+            $scouts = $athletes[$id]['scout'] ?? [];
+            $goals = min($c['goals'], (int) ($scouts['G'] ?? 0));
+            $own = min($c['own_goals'], (int) ($scouts['GC'] ?? 0));
+            if ($goals !== $c['goals'] || $own !== $c['own_goals']) {
+                $claimed[$id] = ['goals' => $goals, 'own_goals' => $own];
+                $update->execute([$goals, $own, $round, $id]);
+            }
+        }
+
+        return $claimed;
     }
 
     private function claimedGoals(int $round): array
