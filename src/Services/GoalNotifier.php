@@ -9,98 +9,105 @@ use Cartoleirao\Models\PushSubscription;
 use PDO;
 
 /**
- * Detects goals in the current Cartola round (score changes in /partidas) and
- * sends "Goool: Casa 1 x 0 Fora - Autor" as a push notification.
+ * Detects goals (score changes from ge.globo.com) and full-time results in the current round and
+ * sends push notifications:
  *
- * The scorer comes from the scouts in /atletas/pontuados, which lag a few
- * minutes behind the score: a goal waits up to SCORER_WAIT_SECONDS for its
- * scorer and is then sent without the name.
+ *   "Goool: Corinthians 1 x 0 Palmeiras - Yuri Alberto"
+ *   "O gol de Yuri Alberto foi anulado: Corinthians 0 x 0 Palmeiras"
+ *   "Fim de jogo: Corinthians 3 x 1 Palmeiras - Gols: Yuri Alberto (2), Raniele, Flaco Lopes"
+ *
+ * Scorers come from the UOL match page, which can lag the score by up to a minute: a notification
+ * waits a little for its scorer and is then sent without the name.
+ * Only runs while the Cartola market is closed (i.e. the round is being played).
  */
 class GoalNotifier
 {
-    private const SCORER_WAIT_SECONDS = 240;
-    /** Goals older than this are dropped silently (e.g. cron was down). */
+    private const MARKET_CLOSED = 2;
+    private const SCORER_WAIT_SECONDS = 75;
+    private const END_WAIT_SECONDS = 120;
+    /** Events older than this are dropped silently (e.g. cron was down). */
     private const STALE_SECONDS = 1800;
-    private const GAME_WINDOW_BEFORE = 11700; // 3h15 after kick-off
-    private const GAME_WINDOW_AFTER = 600;
-
-    /** Display names by Cartola club id (the API only gives abbreviations/nicknames). */
-    private const CLUB_NAMES = [
-        262 => 'Flamengo', 263 => 'Botafogo', 264 => 'Corinthians', 265 => 'Bahia', 266 => 'Fluminense',
-        267 => 'Vasco', 275 => 'Palmeiras', 276 => 'São Paulo', 277 => 'Santos', 280 => 'Red Bull Bragantino',
-        282 => 'Atlético-MG', 283 => 'Cruzeiro', 284 => 'Grêmio', 285 => 'Internacional', 287 => 'Vitória',
-        293 => 'Athletico-PR', 294 => 'Coritiba', 315 => 'Chapecoense', 364 => 'Remo', 2305 => 'Mirassol',
-    ];
+    private const GAME_WINDOW_BEFORE = 600;   // starts watching 10 min before kick-off
+    private const GAME_WINDOW_AFTER = 11700;  // gives up 3h15 after kick-off
 
     private PDO $pdo;
+    private bool $hasWork = false;
 
-    public function __construct(private CartolaApiClient $api, private ?WebPush $push)
+    public function __construct(private CartolaApiClient $cartola, private LiveScoreClient $live, private ?WebPush $push)
     {
         $this->pdo = Connection::get();
     }
 
-    public function run(): string
+    /** Current round when the market is closed, otherwise null. */
+    public function activeRound(): ?int
     {
+        $status = $this->cartola->marketStatus();
+        if (!$status || (int) ($status['status_mercado'] ?? 0) !== self::MARKET_CLOSED || empty($status['rodada_atual'])) {
+            return null;
+        }
+
+        return (int) $status['rodada_atual'];
+    }
+
+    /** Whether another run soon is worthwhile (a game in progress or a notification still pending). */
+    public function hasWork(): bool
+    {
+        return $this->hasWork;
+    }
+
+    public function run(int $round): string
+    {
+        $this->hasWork = false;
+
         if ($this->push === null) {
             return 'chaves VAPID não configuradas';
         }
 
-        $data = $this->api->currentGames();
-        if (!$data || empty($data['partidas']) || empty($data['rodada'])) {
-            return 'sem jogos na rodada atual';
+        $games = $this->live->roundGames($round);
+        if (!$games) {
+            return 'sem jogos na rodada atual (ou ge fora do ar)';
         }
 
-        $round = (int) $data['rodada'];
-        $games = array_values(array_filter($data['partidas'], fn ($g) => !empty($g['partida_id'])));
-        $clubNames = $this->clubNames($data['clubes'] ?? []);
-
-        $seeded = $this->seedNewGames($round, $games);
+        $this->seedNewGames($round, $games);
         $detected = $this->detectGoals($round, $games);
+        $detected += $this->detectFinishes($round, $games);
+        $sent = $this->dispatch($round, $games);
 
-        if (!$this->hasPendingEvents() && !$seeded && !$this->hasGameInProgress($games)) {
-            return 'nenhum jogo em andamento';
-        }
+        $this->hasWork = $this->hasPendingEvents($round) || $this->hasGameInProgress($games);
 
-        $athletes = null;
-        if ($this->hasPendingEvents() || $seeded) {
-            $athletes = $this->api->scoredAthletes()['atletas'] ?? [];
-            if ($seeded && !$this->athletesSeeded($round)) {
-                $this->seedAthletes($round, $athletes);
-            }
-        }
-
-        $sent = $athletes !== null ? $this->dispatch($round, (array) $athletes, $clubNames) : 0;
-
-        return "gols detectados: {$detected}, avisos enviados: {$sent}";
+        return "gols/fins detectados: {$detected}, avisos enviados: {$sent}";
     }
 
-    /** First time a game is seen: only records its current score (no notification). */
-    private function seedNewGames(int $round, array $games): bool
+    /** First time a game is seen: only records its current score/status (no notification). */
+    private function seedNewGames(int $round, array $games): void
     {
         $known = $this->pdo->prepare('SELECT cartola_game_id FROM goal_game_state WHERE round_number = ?');
         $known->execute([$round]);
         $known = array_flip($known->fetchAll(PDO::FETCH_COLUMN));
 
-        $insert = $this->pdo->prepare('INSERT IGNORE INTO goal_game_state (round_number, cartola_game_id, home_score, away_score) VALUES (?, ?, ?, ?)');
-        $new = false;
+        $insert = $this->pdo->prepare('INSERT IGNORE INTO goal_game_state (round_number, cartola_game_id, home_score, away_score, finished) VALUES (?, ?, ?, ?, ?)');
         foreach ($games as $g) {
-            if (!isset($known[$g['partida_id']])) {
-                $insert->execute([$round, $g['partida_id'], (int) $g['placar_oficial_mandante'], (int) $g['placar_oficial_visitante']]);
-                $new = true;
+            if (!isset($known[$g['id']])) {
+                $insert->execute([$round, $g['id'], (int) $g['home_score'], (int) $g['away_score'], (int) $g['finished']]);
             }
         }
-
-        return $new;
     }
 
-    private function detectGoals(int $round, array $games): int
+    private function gameStates(int $round): array
     {
-        $stmt = $this->pdo->prepare('SELECT cartola_game_id, home_score, away_score FROM goal_game_state WHERE round_number = ?');
+        $stmt = $this->pdo->prepare('SELECT cartola_game_id, home_score, away_score, finished FROM goal_game_state WHERE round_number = ?');
         $stmt->execute([$round]);
         $state = [];
         foreach ($stmt->fetchAll() as $row) {
             $state[$row['cartola_game_id']] = $row;
         }
+
+        return $state;
+    }
+
+    private function detectGoals(int $round, array $games): int
+    {
+        $state = $this->gameStates($round);
 
         $addEvent = $this->pdo->prepare('
             INSERT INTO goal_events (round_number, cartola_game_id, home_club_id, away_club_id, home_score, away_score, scoring_club_id)
@@ -110,34 +117,34 @@ class GoalNotifier
 
         $total = 0;
         foreach ($games as $g) {
-            $prev = $state[$g['partida_id']] ?? null;
+            $prev = $state[$g['id']] ?? null;
             if (!$prev) {
                 continue;
             }
 
             // No score published (yet/momentarily): never read it as 0 x 0, or it would look like a cancelled goal.
-            if ($g['placar_oficial_mandante'] === null || $g['placar_oficial_visitante'] === null) {
+            if ($g['home_score'] === null || $g['away_score'] === null) {
                 continue;
             }
 
-            $home = (int) $g['placar_oficial_mandante'];
-            $away = (int) $g['placar_oficial_visitante'];
-            $homeId = (int) $g['clube_casa_id'];
-            $awayId = (int) $g['clube_visitante_id'];
+            $home = (int) $g['home_score'];
+            $away = (int) $g['away_score'];
+            $prevHome = (int) $prev['home_score'];
+            $prevAway = (int) $prev['away_score'];
 
-            $total += $this->cancelGoals($round, $g['partida_id'], $homeId, $awayId, $home, $away, (int) $prev['home_score'], (int) $prev['away_score']);
+            $total += $this->cancelGoals($round, $g, $home, $away, $prevHome, $prevAway);
 
-            for ($h = (int) $prev['home_score'] + 1; $h <= $home; $h++) {
-                $addEvent->execute([$round, $g['partida_id'], $homeId, $awayId, $h, (int) $prev['away_score'], $homeId]);
+            for ($h = $prevHome + 1; $h <= $home; $h++) {
+                $addEvent->execute([$round, $g['id'], $g['home_id'], $g['away_id'], $h, $prevAway, $g['home_id']]);
                 $total++;
             }
-            for ($a = (int) $prev['away_score'] + 1; $a <= $away; $a++) {
-                $addEvent->execute([$round, $g['partida_id'], $homeId, $awayId, max($home, (int) $prev['home_score']), $a, $awayId]);
+            for ($a = $prevAway + 1; $a <= $away; $a++) {
+                $addEvent->execute([$round, $g['id'], $g['home_id'], $g['away_id'], max($home, $prevHome), $a, $g['away_id']]);
                 $total++;
             }
 
-            if ($home !== (int) $prev['home_score'] || $away !== (int) $prev['away_score']) {
-                $update->execute([$home, $away, $round, $g['partida_id']]);
+            if ($home !== $prevHome || $away !== $prevAway) {
+                $update->execute([$home, $away, $round, $g['id']]);
             }
         }
 
@@ -148,10 +155,10 @@ class GoalNotifier
      * The score went down (goal annulled, e.g. by VAR). Each goal undone becomes a 'cancel' event
      * carrying the original scorer. A goal that was never announced is just dropped silently.
      */
-    private function cancelGoals(int $round, int|string $gameId, int $homeId, int $awayId, int $home, int $away, int $prevHome, int $prevAway): int
+    private function cancelGoals(int $round, array $g, int $home, int $away, int $prevHome, int $prevAway): int
     {
         $total = 0;
-        foreach ([[$homeId, $prevHome - $home], [$awayId, $prevAway - $away]] as [$clubId, $drop]) {
+        foreach ([[$g['home_id'], $prevHome - $home], [$g['away_id'], $prevAway - $away]] as [$clubId, $drop]) {
             if ($drop <= 0) {
                 continue;
             }
@@ -160,7 +167,7 @@ class GoalNotifier
                 SELECT id, scorer, sent_at FROM goal_events
                 WHERE round_number = ? AND cartola_game_id = ? AND scoring_club_id = ? AND kind = 'goal'
                 ORDER BY id DESC LIMIT " . (int) $drop);
-            $stmt->execute([$round, $gameId, $clubId]);
+            $stmt->execute([$round, $g['id'], $clubId]);
 
             foreach ($stmt->fetchAll() as $orig) {
                 if ($orig['sent_at'] === null) {
@@ -173,7 +180,7 @@ class GoalNotifier
                 $this->pdo->prepare("
                     INSERT INTO goal_events (round_number, cartola_game_id, home_club_id, away_club_id, home_score, away_score, scoring_club_id, scorer, kind)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'cancel')
-                ")->execute([$round, $gameId, $homeId, $awayId, $home, $away, $clubId, $orig['scorer']]);
+                ")->execute([$round, $g['id'], $g['home_id'], $g['away_id'], $home, $away, $clubId, $orig['scorer']]);
                 $total++;
             }
         }
@@ -181,9 +188,40 @@ class GoalNotifier
         return $total;
     }
 
-    private function dispatch(int $round, array $athletes, array $clubNames): int
+    /** A game that just ended (it was not over when first seen) gets one 'end' event. */
+    private function detectFinishes(int $round, array $games): int
     {
-        // Drop goals that went stale (cron was down) so they don't flood the group.
+        $state = $this->gameStates($round);
+        $addEvent = $this->pdo->prepare("
+            INSERT INTO goal_events (round_number, cartola_game_id, home_club_id, away_club_id, home_score, away_score, scoring_club_id, kind)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'end')
+        ");
+        $markFinished = $this->pdo->prepare('UPDATE goal_game_state SET finished = 1 WHERE round_number = ? AND cartola_game_id = ?');
+
+        $total = 0;
+        foreach ($games as $g) {
+            $prev = $state[$g['id']] ?? null;
+            if (!$prev || (int) $prev['finished'] || !$g['finished'] || $g['home_score'] === null || $g['away_score'] === null) {
+                continue;
+            }
+
+            // Long over (e.g. state from before this feature existed): just record it, no notification.
+            if ($g['start'] && time() > $g['start'] + self::GAME_WINDOW_AFTER) {
+                $markFinished->execute([$round, $g['id']]);
+                continue;
+            }
+
+            $addEvent->execute([$round, $g['id'], $g['home_id'], $g['away_id'], (int) $g['home_score'], (int) $g['away_score'], $g['home_id']]);
+            $markFinished->execute([$round, $g['id']]);
+            $total++;
+        }
+
+        return $total;
+    }
+
+    private function dispatch(int $round, array $games): int
+    {
+        // Drop events that went stale (cron was down) so they don't flood the group.
         $this->pdo->prepare('UPDATE goal_events SET sent_at = NOW() WHERE sent_at IS NULL AND TIMESTAMPDIFF(SECOND, detected_at, NOW()) > ?')
             ->execute([self::STALE_SECONDS]);
 
@@ -193,50 +231,55 @@ class GoalNotifier
         ');
         $events->execute([$round]);
 
-        $claimed = $this->reconcileClaimed($round, $this->claimedGoals($round), $athletes);
+        $byId = [];
+        foreach ($games as $g) {
+            $byId[$g['id']] = $g;
+        }
+
         $markSent = $this->pdo->prepare('UPDATE goal_events SET sent_at = NOW() WHERE id = ?');
-        $claim = $this->pdo->prepare('
-            INSERT INTO goal_athlete_state (round_number, athlete_id, goals, own_goals) VALUES (?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE goals = VALUES(goals), own_goals = VALUES(own_goals)
-        ');
+        $setScorer = $this->pdo->prepare('UPDATE goal_events SET scorer = ? WHERE id = ?');
+        $blocked = []; // games with an earlier event still waiting: keeps the order (the "fim de jogo" comes last)
 
         $sent = 0;
         foreach ($events->fetchAll() as $ev) {
-            if ($ev['kind'] === 'cancel') {
+            $game = $byId[(int) $ev['cartola_game_id']] ?? null;
+            if (!$game) {
                 $markSent->execute([$ev['id']]);
-                $home = $clubNames[(int) $ev['home_club_id']] ?? 'Mandante';
-                $away = $clubNames[(int) $ev['away_club_id']] ?? 'Visitante';
-                $scoringClub = $clubNames[(int) $ev['scoring_club_id']] ?? 'time';
-                $who = $ev['scorer'] ? "O gol de {$ev['scorer']}" : "O gol do {$scoringClub}";
-                PushSubscription::broadcast($this->push, '⚽ Cartoleirão', "{$who} foi anulado: {$home} {$ev['home_score']} x {$ev['away_score']} {$away}");
-                $sent++;
+                continue;
+            }
+            if (isset($blocked[$game['id']]) && $ev['kind'] === 'end') {
                 continue;
             }
 
-            $found = $this->findScorer($ev, $athletes, $claimed);
+            $score = "{$game['home']} {$ev['home_score']} x {$ev['away_score']} {$game['away']}";
 
-            if ($found === null && (int) $ev['age'] < self::SCORER_WAIT_SECONDS) {
-                continue; // scouts haven't caught up yet
-            }
-
-            $scorer = null;
-            if ($found !== null) {
-                [$athleteId, $scorer, $isOwnGoal] = $found;
-                $claimed[$athleteId] ??= ['goals' => 0, 'own_goals' => 0];
-                $claimed[$athleteId][$isOwnGoal ? 'own_goals' : 'goals']++;
-                $claim->execute([$round, $athleteId, $claimed[$athleteId]['goals'], $claimed[$athleteId]['own_goals']]);
-                if ($isOwnGoal) {
-                    $scorer .= ' (contra)';
+            if ($ev['kind'] === 'cancel') {
+                $markSent->execute([$ev['id']]);
+                $scoring = (int) $ev['scoring_club_id'] === $game['home_id'] ? $game['home'] : $game['away'];
+                $who = $ev['scorer'] ? "O gol de {$ev['scorer']}" : "O gol do {$scoring}";
+                $message = "{$who} foi anulado: {$score}";
+            } elseif ($ev['kind'] === 'end') {
+                $goals = $this->live->goals($game);
+                $total = (int) $ev['home_score'] + (int) $ev['away_score'];
+                $complete = $total === 0 || ($goals !== null && count($goals) === $total);
+                if (!$complete && (int) $ev['age'] < self::END_WAIT_SECONDS) {
+                    continue; // the match page hasn't caught up with the final score yet
                 }
+
+                $markSent->execute([$ev['id']]);
+                $message = "Fim de jogo: {$score}" . ($goals ? ' - Gols: ' . $this->summarizeGoals($goals) : '');
+            } else {
+                $scorer = $this->scorerOf($ev, $game);
+                if ($scorer === null && (int) $ev['age'] < self::SCORER_WAIT_SECONDS) {
+                    $blocked[$game['id']] = true;
+                    continue; // the match page hasn't caught up yet
+                }
+
+                // Marked before sending: a failure must never turn into a repeated notification.
+                $markSent->execute([$ev['id']]);
+                $setScorer->execute([$scorer, $ev['id']]);
+                $message = "Goool: {$score}" . ($scorer ? " - {$scorer}" : '');
             }
-
-            // Marked before sending: a failure must never turn into a repeated notification.
-            $markSent->execute([$ev['id']]);
-            $this->pdo->prepare('UPDATE goal_events SET scorer = ? WHERE id = ?')->execute([$scorer, $ev['id']]);
-
-            $home = $clubNames[(int) $ev['home_club_id']] ?? 'Mandante';
-            $away = $clubNames[(int) $ev['away_club_id']] ?? 'Visitante';
-            $message = "Goool: {$home} {$ev['home_score']} x {$ev['away_score']} {$away}" . ($scorer ? " - {$scorer}" : '');
 
             PushSubscription::broadcast($this->push, '⚽ Cartoleirão', $message);
             $sent++;
@@ -245,110 +288,67 @@ class GoalNotifier
         return $sent;
     }
 
-    /** @return array{0: int, 1: string, 2: bool}|null [athlete id, name, own goal?] */
-    private function findScorer(array $ev, array $athletes, array $claimed): ?array
-    {
-        $scoring = (int) $ev['scoring_club_id'];
-        $opponent = $scoring === (int) $ev['home_club_id'] ? (int) $ev['away_club_id'] : (int) $ev['home_club_id'];
-
-        foreach ($athletes as $id => $a) {
-            $scouts = $a['scout'] ?? [];
-            $clubId = (int) ($a['clube_id'] ?? 0);
-
-            if ($clubId === $scoring && (int) ($scouts['G'] ?? 0) > ($claimed[$id]['goals'] ?? 0)) {
-                return [(int) $id, (string) ($a['apelido'] ?? ''), false];
-            }
-            if ($clubId === $opponent && (int) ($scouts['GC'] ?? 0) > ($claimed[$id]['own_goals'] ?? 0)) {
-                return [(int) $id, (string) ($a['apelido'] ?? ''), true];
-            }
-        }
-
-        return null;
-    }
-
     /**
-     * When a goal is annulled the athlete's scout drops; lowering our claimed count with it keeps
-     * a later goal by the same player attributable.
+     * The scorer of a goal event: the Nth goal of that side on the match page, N being the side's
+     * score right after the goal. Counting this way stays correct after annulled goals.
      */
-    private function reconcileClaimed(int $round, array $claimed, array $athletes): array
+    private function scorerOf(array $ev, array $game): ?string
     {
-        $update = $this->pdo->prepare('UPDATE goal_athlete_state SET goals = ?, own_goals = ? WHERE round_number = ? AND athlete_id = ?');
-        foreach ($claimed as $id => $c) {
-            $scouts = $athletes[$id]['scout'] ?? [];
-            $goals = min($c['goals'], (int) ($scouts['G'] ?? 0));
-            $own = min($c['own_goals'], (int) ($scouts['GC'] ?? 0));
-            if ($goals !== $c['goals'] || $own !== $c['own_goals']) {
-                $claimed[$id] = ['goals' => $goals, 'own_goals' => $own];
-                $update->execute([$goals, $own, $round, $id]);
-            }
+        $goals = $this->live->goals($game);
+        if ($goals === null) {
+            return null;
         }
 
-        return $claimed;
-    }
-
-    private function claimedGoals(int $round): array
-    {
-        $stmt = $this->pdo->prepare('SELECT athlete_id, goals, own_goals FROM goal_athlete_state WHERE round_number = ?');
-        $stmt->execute([$round]);
-        $claimed = [];
-        foreach ($stmt->fetchAll() as $row) {
-            $claimed[(int) $row['athlete_id']] = ['goals' => (int) $row['goals'], 'own_goals' => (int) $row['own_goals']];
+        $isHome = (int) $ev['scoring_club_id'] === $game['home_id'];
+        $side = array_values(array_filter($goals, fn ($g) => $g['side'] === ($isHome ? 'home' : 'away')));
+        $goal = $side[((int) ($isHome ? $ev['home_score'] : $ev['away_score'])) - 1] ?? null;
+        if (!$goal || $goal['scorer'] === '') {
+            return null;
         }
 
-        return $claimed;
+        return $this->label($goal);
     }
 
-    private function athletesSeeded(int $round): bool
+    private function label(array $goal): string
     {
-        $stmt = $this->pdo->prepare('SELECT 1 FROM goal_athlete_state WHERE round_number = ? LIMIT 1');
+        return $goal['scorer'] . ($goal['own'] ? ' (contra)' : '');
+    }
+
+    /** "Yuri Alberto (2), Raniele, Flaco Lopes" — scorers in order of their first goal. */
+    private function summarizeGoals(array $goals): string
+    {
+        $counts = [];
+        foreach ($goals as $goal) {
+            $label = $goal['scorer'] !== '' ? $this->label($goal) : 'gol sem autor';
+            $counts[$label] = ($counts[$label] ?? 0) + 1;
+        }
+
+        $parts = [];
+        foreach ($counts as $label => $n) {
+            $parts[] = $n > 1 ? "{$label} ({$n})" : $label;
+        }
+
+        return implode(', ', $parts);
+    }
+
+    private function hasPendingEvents(int $round): bool
+    {
+        $stmt = $this->pdo->prepare('SELECT 1 FROM goal_events WHERE sent_at IS NULL AND round_number = ? LIMIT 1');
         $stmt->execute([$round]);
 
         return (bool) $stmt->fetchColumn();
-    }
-
-    /** Records the goals athletes already have, so past goals are never attributed to new ones. */
-    private function seedAthletes(int $round, array $athletes): void
-    {
-        $insert = $this->pdo->prepare('INSERT IGNORE INTO goal_athlete_state (round_number, athlete_id, goals, own_goals) VALUES (?, ?, ?, ?)');
-        foreach ($athletes as $id => $a) {
-            $goals = (int) ($a['scout']['G'] ?? 0);
-            $own = (int) ($a['scout']['GC'] ?? 0);
-            if ($goals || $own) {
-                $insert->execute([$round, (int) $id, $goals, $own]);
-            }
-        }
-    }
-
-    private function hasPendingEvents(): bool
-    {
-        return (bool) $this->pdo->query('SELECT 1 FROM goal_events WHERE sent_at IS NULL LIMIT 1')->fetchColumn();
     }
 
     private function hasGameInProgress(array $games): bool
     {
         $now = time();
         foreach ($games as $g) {
-            $start = strtotime((string) ($g['partida_data'] ?? ''));
-            if ($start && $now >= $start - self::GAME_WINDOW_AFTER && $now <= $start + self::GAME_WINDOW_BEFORE) {
+            if (!$g['finished'] && $g['start'] && $now >= $g['start'] - self::GAME_WINDOW_BEFORE && $now <= $g['start'] + self::GAME_WINDOW_AFTER) {
                 return true;
             }
         }
 
         return false;
-    }
-
-    /** @return array<int, string> club id => display name */
-    private function clubNames(array $apiClubs): array
-    {
-        $names = self::CLUB_NAMES;
-        foreach ($apiClubs as $club) {
-            $id = (int) ($club['id'] ?? 0);
-            if ($id && !isset($names[$id])) {
-                $names[$id] = $club['slug'] ? mb_convert_case(str_replace('-', ' ', $club['slug']), MB_CASE_TITLE) : ($club['apelido'] ?? $club['nome']);
-            }
-        }
-
-        return $names;
     }
 
     public static function lock(): bool

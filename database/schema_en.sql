@@ -261,19 +261,11 @@ CREATE TABLE IF NOT EXISTS goal_game_state (
     cartola_game_id BIGINT NOT NULL,
     home_score INT NOT NULL DEFAULT 0,
     away_score INT NOT NULL DEFAULT 0,
+    finished TINYINT(1) NOT NULL DEFAULT 0,
     PRIMARY KEY (round_number, cartola_game_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Gols de cada atleta já atribuídos a um aviso (para descobrir o autor).
-CREATE TABLE IF NOT EXISTS goal_athlete_state (
-    round_number INT NOT NULL,
-    athlete_id BIGINT NOT NULL,
-    goals INT NOT NULL DEFAULT 0,
-    own_goals INT NOT NULL DEFAULT 0,
-    PRIMARY KEY (round_number, athlete_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Gols detectados; o aviso espera o autor aparecer (a API de atletas atrasa alguns minutos).
+-- Avisos de gol / gol anulado / fim de jogo ('goal', 'cancelled', 'cancel', 'end'); o de gol espera o autor aparecer no placar da UOL.
 CREATE TABLE IF NOT EXISTS goal_events (
     id INT AUTO_INCREMENT PRIMARY KEY,
     round_number INT NOT NULL,

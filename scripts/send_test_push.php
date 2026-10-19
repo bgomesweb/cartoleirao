@@ -3,9 +3,10 @@
 declare(strict_types=1);
 
 // Envia notificações de teste para todos os aparelhos inscritos.
-//   php send_test_push.php          -> gol, 5s depois gol anulado
+//   php send_test_push.php          -> gol, 5s depois gol anulado, 5s depois fim de jogo
 //   php send_test_push.php gol      -> só o gol
 //   php send_test_push.php anulado  -> só o gol anulado
+//   php send_test_push.php fim      -> só o fim de jogo
 // Só dispara as mensagens; não mexe no estado da detecção de gols.
 require_once __DIR__ . '/../src/Config/bootstrap.php';
 
@@ -26,8 +27,11 @@ if (in_array($mode, ['ambos', 'gol'], true)) {
 if (in_array($mode, ['ambos', 'anulado'], true)) {
     $messages[] = 'O gol de Yuri Alberto foi anulado: Corinthians 0 x 0 Palmeiras';
 }
+if (in_array($mode, ['ambos', 'fim'], true)) {
+    $messages[] = 'Fim de jogo: Corinthians 3 x 1 Palmeiras - Gols: Yuri Alberto (2), Raniele, Flaco Lopes';
+}
 if (!$messages) {
-    fwrite(STDERR, "Uso: php send_test_push.php [gol|anulado]\n");
+    fwrite(STDERR, "Uso: php send_test_push.php [gol|anulado|fim]\n");
     exit(1);
 }
 

@@ -17,6 +17,12 @@ $intervals = [
     'sync_scores.php' => 900,            // 15 min
 ];
 
+// Notificações de gol: o script roda ~54s checando a cada 10s, então é lançado a cada
+// 1 min em segundo plano (não pode travar o resto do loop). O lock dele evita sobreposição.
+$backgroundIntervals = [
+    'notify_goals.php' => 60,
+];
+
 $lastRun = [];
 
 echo "[scheduler] iniciado " . date('Y-m-d H:i:s') . PHP_EOL;
@@ -36,5 +42,12 @@ while (true) {
             $lastRun[$script] = $now;
         }
     }
-    sleep(30);
+    foreach ($backgroundIntervals as $script => $seconds) {
+        if (!isset($lastRun[$script]) || (time() - $lastRun[$script]) >= $seconds) {
+            exec('php ' . escapeshellarg(__DIR__ . '/' . $script) . ' >> /proc/1/fd/1 2>&1 &');
+            $lastRun[$script] = time();
+        }
+    }
+
+    sleep(5);
 }
