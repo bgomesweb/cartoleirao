@@ -23,7 +23,7 @@ use PDO;
 class GoalNotifier
 {
     private const MARKET_CLOSED = 2;
-    private const SCORER_WAIT_SECONDS = 75;
+    private const SCORER_WAIT_SECONDS = 30;
     private const END_WAIT_SECONDS = 120;
     /** Events older than this are dropped silently (e.g. cron was down). */
     private const STALE_SECONDS = 1800;

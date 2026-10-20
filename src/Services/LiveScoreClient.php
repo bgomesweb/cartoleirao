@@ -16,11 +16,13 @@ class LiveScoreClient
 {
     private const GE_TABLE = 'd1a37fa4-e948-43a6-ba53-ab24ab3a45b1';
     private const GE_PHASE = 'fase-unica-campeonato-brasileiro-2026';
-    private const UOL_CACHE_SECONDS = 15;
+    private const UOL_CACHE_SECONDS = 8;
+    private const GAME_WINDOW_BEFORE = 600;
+    private const GAME_WINDOW_AFTER = 11700;
     /** ge name => UOL slug, for the clubs the two sites name differently. */
     private const UOL_SLUGS = ['Bragantino' => 'red-bull-bragantino'];
 
-    /** @var array<int, array{at: int, goals: ?array}> */
+    /** @var array<int, array{at: int, page: ?array}> */
     private array $goalsCache = [];
 
     /**
@@ -58,6 +60,25 @@ class LiveScoreClient
             ];
         }
 
+        // The ge API lags minutes behind the real game; the UOL match page is fresher, so for games
+        // under way its score and status win.
+        foreach ($games as &$game) {
+            $now = time();
+            if ($game['finished'] || !$game['start'] || $now < $game['start'] - self::GAME_WINDOW_BEFORE || $now > $game['start'] + self::GAME_WINDOW_AFTER) {
+                continue;
+            }
+            $snapshot = $this->page($game)['snapshot'] ?? null;
+            if ($snapshot === null) {
+                continue;
+            }
+            if ($snapshot['home'] !== null && $snapshot['away'] !== null) {
+                $game['home_score'] = $snapshot['home'];
+                $game['away_score'] = $snapshot['away'];
+            }
+            $game['finished'] = $snapshot['ended'];
+        }
+        unset($game);
+
         return $games;
     }
 
@@ -68,18 +89,24 @@ class LiveScoreClient
      */
     public function goals(array $game): ?array
     {
-        $cached = $this->goalsCache[$game['id']] ?? null;
-        if ($cached && time() - $cached['at'] < self::UOL_CACHE_SECONDS) {
-            return $cached['goals'];
-        }
-
-        $goals = $this->fetchGoals($game);
-        $this->goalsCache[$game['id']] = ['at' => time(), 'goals' => $goals];
-
-        return $goals;
+        return $this->page($game)['goals'] ?? null;
     }
 
-    private function fetchGoals(array $game): ?array
+    /** @return array{snapshot: ?array, goals: ?array}|null cached for a few seconds */
+    private function page(array $game): ?array
+    {
+        $cached = $this->goalsCache[$game['id']] ?? null;
+        if ($cached && time() - $cached['at'] < self::UOL_CACHE_SECONDS) {
+            return $cached['page'];
+        }
+
+        $page = $this->fetchPage($game);
+        $this->goalsCache[$game['id']] = ['at' => time(), 'page' => $page];
+
+        return $page;
+    }
+
+    private function fetchPage(array $game): ?array
     {
         if (!$game['start']) {
             return null;
@@ -97,10 +124,22 @@ class LiveScoreClient
         }
 
         $board = json_decode($m[1], true)['football-scoreboard'] ?? null;
-        if (!is_array($board) || !isset($board['goals'])) {
+        if (!is_array($board)) {
             return null;
         }
 
+        $snap = $board['jsonScoreAndStatusSnapshot'] ?? null;
+        $snapshot = is_array($snap) ? [
+            'home' => isset($snap['scr']['g']['h']) ? (int) $snap['scr']['g']['h'] : null,
+            'away' => isset($snap['scr']['g']['a']) ? (int) $snap['scr']['g']['a'] : null,
+            'ended' => ($snap['s'] ?? '') === 'match-ended',
+        ] : null;
+
+        return ['snapshot' => $snapshot, 'goals' => isset($board['goals']) ? $this->parseGoals($board) : null];
+    }
+
+    private function parseGoals(array $board): array
+    {
         $raw = array_values(array_filter((array) $board['goals'], fn ($g) => ($g['isGoal'] ?? true) !== false));
         usort($raw, fn ($a, $b) => ($a['timestamp'] ?? 0) <=> ($b['timestamp'] ?? 0));
 
