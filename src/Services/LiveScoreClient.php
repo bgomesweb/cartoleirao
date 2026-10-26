@@ -21,6 +21,7 @@ class LiveScoreClient
     private const GE_PHASE = 'fase-unica-campeonato-brasileiro-2026';
     private const UOL_FEED = 'https://rtw.uol.com/sub?id=ss-lv';
     private const UOL_PAGE_CACHE_SECONDS = 3;
+    private const UOL_PAGE_TRIES = 4;
     private const UOL_FEED_CACHE_SECONDS = 2;
     private const GE_CACHE_SECONDS = 60;
     private const UOL_STATUS_NOT_STARTED = 10;
@@ -93,18 +94,30 @@ class LiveScoreClient
      * Goals of a game in chronological order, annulled ones excluded.
      * Each: scorer (nickname), side ('home'|'away' = the side the goal counts for), own (own goal?).
      * Null when the match page can't be read.
+     *
+     * The UOL page is served by replicas that lag each other by minutes, so when the caller knows how
+     * many goals there must be ($expected), the page is requested again until one replica has them all.
      */
-    public function goals(array $game): ?array
+    public function goals(array $game, int $expected = 0): ?array
     {
         $cached = $this->goalsCache[$game['id']] ?? null;
-        if ($cached && time() - $cached['at'] < self::UOL_PAGE_CACHE_SECONDS) {
+        if ($cached && time() - $cached['at'] < self::UOL_PAGE_CACHE_SECONDS && count($cached['goals'] ?? []) >= $expected) {
             return $cached['goals'];
         }
 
-        $goals = $this->fetchGoals($game);
-        $this->goalsCache[$game['id']] = ['at' => time(), 'goals' => $goals];
+        $best = null;
+        for ($try = 0; $try < self::UOL_PAGE_TRIES; $try++) {
+            $goals = $this->fetchGoals($game);
+            if ($goals !== null && ($best === null || count($goals) > count($best))) {
+                $best = $goals;
+            }
+            if ($best !== null && count($best) >= $expected) {
+                break;
+            }
+        }
+        $this->goalsCache[$game['id']] = ['at' => time(), 'goals' => $best];
 
-        return $goals;
+        return $best;
     }
 
     /** @return array|null raw ge list of the round, cached for a minute */
@@ -177,11 +190,11 @@ class LiveScoreClient
 
         // The query string skips the CDN's 60s cache: without it a new goal's scorer shows up late.
         $url = sprintf(
-            'https://placar.uol.com.br/esporte/futebol/brasileirao/%s/%s-x-%s.htm?_=%d',
+            'https://placar.uol.com.br/esporte/futebol/brasileirao/%s/%s-x-%s.htm?_=%s',
             date('Y/m/d', $game['start']),
             self::slug($game['home']),
             self::slug($game['away']),
-            time()
+            uniqid()
         );
         $html = $this->fetch($url);
         if (!$html || !preg_match('#<script id="VUELAND_STATE" type="application/json">(.*?)</script>#s', $html, $m)) {

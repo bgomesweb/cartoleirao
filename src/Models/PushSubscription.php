@@ -49,6 +49,7 @@ class PushSubscription
     {
         $subs = self::all();
         if (!$subs) {
+            echo "[push] nenhum aparelho inscrito\n";
             return 0;
         }
 
@@ -63,9 +64,12 @@ class PushSubscription
                 $ok++;
             } else {
                 error_log("[push] endpoint {$subs[$i]['id']} respondeu HTTP {$r['status']}");
+                echo "[push] aparelho {$subs[$i]['id']} falhou: HTTP {$r['status']}\n";
             }
         }
         self::deleteByIds($expired);
+        echo '[push] "' . $body . '" -> entregue a ' . $ok . ' de ' . count($subs) . ' aparelhos'
+            . ($expired ? ', ' . count($expired) . ' expirado(s) removido(s)' : '') . "\n";
 
         return $ok;
     }

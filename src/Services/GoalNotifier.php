@@ -28,7 +28,7 @@ class GoalNotifier
     private const MARKET_CLOSED = 2;
     /** A game first seen this soon after kick-off starts from 0 x 0 (so a late first run still announces its goals). */
     private const SEED_FROM_ZERO_SECONDS = 900;
-    private const SCORER_WAIT_SECONDS = 12;
+    private const SCORER_WAIT_SECONDS = 25;
     private const END_WAIT_SECONDS = 120;
     /** Events older than this are dropped silently (e.g. cron was down). */
     private const STALE_SECONDS = 1800;
@@ -274,8 +274,8 @@ class GoalNotifier
                 $who = $ev['scorer'] ? "O gol de {$ev['scorer']}" : "O gol do {$scoring}";
                 $message = "{$who} foi anulado: {$score}";
             } elseif ($ev['kind'] === 'end') {
-                $goals = $this->live->goals($game);
                 $total = (int) $ev['home_score'] + (int) $ev['away_score'];
+                $goals = $this->live->goals($game, $total);
                 $complete = $total === 0 || ($goals !== null && count($goals) === $total);
                 if (!$complete && (int) $ev['age'] < self::END_WAIT_SECONDS) {
                     continue; // the match page hasn't caught up with the final score yet
@@ -309,7 +309,7 @@ class GoalNotifier
      */
     private function scorerOf(array $ev, array $game): ?string
     {
-        $goals = $this->live->goals($game);
+        $goals = $this->live->goals($game, (int) $ev['home_score'] + (int) $ev['away_score']);
         if ($goals === null) {
             return null;
         }
