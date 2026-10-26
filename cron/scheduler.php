@@ -17,7 +17,7 @@ $intervals = [
     'sync_scores.php' => 900,            // 15 min
 ];
 
-// Notificações de gol: o script roda ~54s checando a cada 10s, então é lançado a cada
+// Notificações de gol: o script roda ~54s checando a cada 4s, então é lançado a cada
 // 1 min em segundo plano (não pode travar o resto do loop). O lock dele evita sobreposição.
 $backgroundIntervals = [
     'notify_goals.php' => 60,

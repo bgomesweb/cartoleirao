@@ -16,14 +16,19 @@ use PDO;
  *   "O gol de Yuri Alberto foi anulado: Corinthians 0 x 0 Palmeiras"
  *   "Fim de jogo: Corinthians 3 x 1 Palmeiras - Gols: Yuri Alberto (2), Raniele, Flaco Lopes"
  *
- * Scorers come from the UOL match page, which can lag the score by up to a minute: a notification
- * waits a little for its scorer and is then sent without the name.
- * Only runs while the Cartola market is closed (i.e. the round is being played).
+ * Score and status come from the UOL realtime feed (the one behind the UOL app); scorers come from
+ * the UOL match page, which can lag the score a few seconds: a notification waits a little for its
+ * scorer and is then sent without the name.
+ * Runs while the Cartola market is closed (i.e. the round is being played); when the market reopens
+ * it keeps watching the previous round for a few hours, so its last "Fim de jogo" isn't lost.
  */
 class GoalNotifier
 {
+    private const MARKET_OPEN = 1;
     private const MARKET_CLOSED = 2;
-    private const SCORER_WAIT_SECONDS = 30;
+    /** A game first seen this soon after kick-off starts from 0 x 0 (so a late first run still announces its goals). */
+    private const SEED_FROM_ZERO_SECONDS = 900;
+    private const SCORER_WAIT_SECONDS = 12;
     private const END_WAIT_SECONDS = 120;
     /** Events older than this are dropped silently (e.g. cron was down). */
     private const STALE_SECONDS = 1800;
@@ -38,15 +43,21 @@ class GoalNotifier
         $this->pdo = Connection::get();
     }
 
-    /** Current round when the market is closed, otherwise null. */
+    /** Round being played: the current one with the market closed, the previous one once it reopens; null if unknown. */
     public function activeRound(): ?int
     {
         $status = $this->cartola->marketStatus();
-        if (!$status || (int) ($status['status_mercado'] ?? 0) !== self::MARKET_CLOSED || empty($status['rodada_atual'])) {
+        if (!$status || empty($status['rodada_atual'])) {
             return null;
         }
 
-        return (int) $status['rodada_atual'];
+        $market = (int) ($status['status_mercado'] ?? 0);
+        $round = (int) $status['rodada_atual'];
+        if ($market === self::MARKET_CLOSED) {
+            return $round;
+        }
+
+        return $market === self::MARKET_OPEN && $round > 1 ? $round - 1 : null;
     }
 
     /** Whether another run soon is worthwhile (a game in progress or a notification still pending). */
@@ -65,7 +76,7 @@ class GoalNotifier
 
         $games = $this->live->roundGames($round);
         if (!$games) {
-            return 'sem jogos na rodada atual (ou ge fora do ar)';
+            return "sem jogos na rodada {$round} (ou ge fora do ar)";
         }
 
         $this->seedNewGames($round, $games);
@@ -75,10 +86,12 @@ class GoalNotifier
 
         $this->hasWork = $this->hasPendingEvents($round) || $this->hasGameInProgress($games);
 
-        return "gols/fins detectados: {$detected}, avisos enviados: {$sent}";
+        $feed = $this->live->feedAvailable() ? 'ok' : 'FORA DO AR (usando ge)';
+
+        return "rodada {$round}, feed UOL: {$feed}, gols/fins detectados: {$detected}, avisos enviados: {$sent}";
     }
 
-    /** First time a game is seen: only records its current score/status (no notification). */
+    /** First time a game is seen: records its current score/status (no notification), unless it just kicked off. */
     private function seedNewGames(int $round, array $games): void
     {
         $known = $this->pdo->prepare('SELECT cartola_game_id FROM goal_game_state WHERE round_number = ?');
@@ -87,9 +100,11 @@ class GoalNotifier
 
         $insert = $this->pdo->prepare('INSERT IGNORE INTO goal_game_state (round_number, cartola_game_id, home_score, away_score, finished) VALUES (?, ?, ?, ?, ?)');
         foreach ($games as $g) {
-            if (!isset($known[$g['id']])) {
-                $insert->execute([$round, $g['id'], (int) $g['home_score'], (int) $g['away_score'], (int) $g['finished']]);
+            if (isset($known[$g['id']])) {
+                continue;
             }
+            $justStarted = !$g['finished'] && $g['start'] && time() - $g['start'] < self::SEED_FROM_ZERO_SECONDS;
+            $insert->execute([$round, $g['id'], $justStarted ? 0 : (int) $g['home_score'], $justStarted ? 0 : (int) $g['away_score'], (int) $g['finished']]);
         }
     }
 

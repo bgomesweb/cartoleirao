@@ -220,6 +220,19 @@ Dia da semana: *
 Comando: /usr/local/bin/php /home/usuario/cartoleirao/cron/sync_scores.php >> /home/usuario/cartoleirao/cron.log 2>&1
 ```
 
+**Notificações de gol / fim de jogo (TODO minuto — não pode ser menos frequente):**
+```
+Minuto: *
+Hora: *
+Dia: *
+Mês: *
+Dia da semana: *
+Comando: /usr/local/bin/php /home/usuario/cartoleirao/cron/notify_goals.php >> /home/usuario/cartoleirao/cron.log 2>&1
+```
+Cada execução dura ~54s e confere o placar a cada 4s (o cron do cPanel não roda
+em intervalos menores que 1 minuto). Se esse cron estiver configurado com
+intervalo maior (ex.: `*/5`), os avisos chegam atrasados ou se perdem.
+
 > **Cron antigo `sync_official_league.php` / `sync_liga_oficial.php`?** Foram
 > removidos. Apague esse cron job no cPanel (senão ele gera e-mail de erro).
 

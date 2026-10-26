@@ -8,22 +8,32 @@ namespace Cartoleirao\Services;
  * Live scores for goal notifications, from sources fresher than the Cartola API
  * (whose /partidas answer is cached for 5 minutes):
  *
- *  - ge.globo.com (api.globoesporte.globo.com): score and status of every game in a round,
- *    cached for 60s. Game and club ids are the same ones Cartola uses.
- *  - placar.uol.com.br: the match page embeds the goals with their scorers.
+ *  - rtw.uol.com (channel "ss-lv"): the realtime feed behind the UOL app. One uncached request
+ *    returns score and status of every game on air; it is the primary source for both.
+ *  - ge.globo.com (api.globoesporte.globo.com): the list of games of a round (cached for 60s here).
+ *    Game and club ids are the same ones Cartola uses. Its score is only a fallback.
+ *  - placar.uol.com.br: the match page embeds the goals with their scorers (fetched with a
+ *    cache-busting query, since the CDN keeps the page for 60s).
  */
 class LiveScoreClient
 {
     private const GE_TABLE = 'd1a37fa4-e948-43a6-ba53-ab24ab3a45b1';
     private const GE_PHASE = 'fase-unica-campeonato-brasileiro-2026';
-    private const UOL_CACHE_SECONDS = 8;
-    private const GAME_WINDOW_BEFORE = 600;
-    private const GAME_WINDOW_AFTER = 11700;
+    private const UOL_FEED = 'https://rtw.uol.com/sub?id=ss-lv';
+    private const UOL_PAGE_CACHE_SECONDS = 3;
+    private const UOL_FEED_CACHE_SECONDS = 2;
+    private const GE_CACHE_SECONDS = 60;
+    private const UOL_STATUS_NOT_STARTED = 10;
+    private const UOL_STATUS_ENDED = 11;
     /** ge name => UOL slug, for the clubs the two sites name differently. */
     private const UOL_SLUGS = ['Bragantino' => 'red-bull-bragantino'];
 
-    /** @var array<int, array{at: int, page: ?array}> */
+    /** @var array<int, array{at: int, goals: ?array}> */
     private array $goalsCache = [];
+    /** @var array<int, array{at: int, list: ?array}> */
+    private array $geCache = [];
+    /** @var array{at: int, games: ?array}|null */
+    private ?array $feedCache = null;
 
     /**
      * @return array<int, array>|null games of the round: id, start (timestamp), home_id, away_id,
@@ -31,13 +41,7 @@ class LiveScoreClient
      */
     public function roundGames(int $round): ?array
     {
-        $url = sprintf(
-            'https://api.globoesporte.globo.com/tabela/%s/fase/%s/rodada/%d/jogos/',
-            self::GE_TABLE,
-            self::GE_PHASE,
-            $round
-        );
-        $list = json_decode((string) $this->fetch($url), true);
+        $list = $this->geGames($round);
         if (!is_array($list)) {
             return null;
         }
@@ -60,26 +64,29 @@ class LiveScoreClient
             ];
         }
 
-        // The ge API lags minutes behind the real game; the UOL match page is fresher, so for games
-        // under way its score and status win.
+        // The ge API lags minutes behind the real game; the UOL realtime feed is the same one the UOL
+        // app shows, so for every game it knows about, its score and status win.
+        $feed = $this->liveFeed();
         foreach ($games as &$game) {
-            $now = time();
-            if ($game['finished'] || !$game['start'] || $now < $game['start'] - self::GAME_WINDOW_BEFORE || $now > $game['start'] + self::GAME_WINDOW_AFTER) {
+            $live = $feed[self::slug($game['home']) . '|' . self::slug($game['away'])] ?? null;
+            if ($live === null || $live['status'] === self::UOL_STATUS_NOT_STARTED) {
                 continue;
             }
-            $snapshot = $this->page($game)['snapshot'] ?? null;
-            if ($snapshot === null) {
-                continue;
+            if ($live['home'] !== null && $live['away'] !== null) {
+                $game['home_score'] = $live['home'];
+                $game['away_score'] = $live['away'];
             }
-            if ($snapshot['home'] !== null && $snapshot['away'] !== null) {
-                $game['home_score'] = $snapshot['home'];
-                $game['away_score'] = $snapshot['away'];
-            }
-            $game['finished'] = $snapshot['ended'];
+            $game['finished'] = $live['status'] === self::UOL_STATUS_ENDED;
         }
         unset($game);
 
         return $games;
+    }
+
+    /** Whether the realtime feed answered on the last call (for the log). */
+    public function feedAvailable(): bool
+    {
+        return !empty($this->feedCache['games']);
     }
 
     /**
@@ -89,34 +96,92 @@ class LiveScoreClient
      */
     public function goals(array $game): ?array
     {
-        return $this->page($game)['goals'] ?? null;
-    }
-
-    /** @return array{snapshot: ?array, goals: ?array}|null cached for a few seconds */
-    private function page(array $game): ?array
-    {
         $cached = $this->goalsCache[$game['id']] ?? null;
-        if ($cached && time() - $cached['at'] < self::UOL_CACHE_SECONDS) {
-            return $cached['page'];
+        if ($cached && time() - $cached['at'] < self::UOL_PAGE_CACHE_SECONDS) {
+            return $cached['goals'];
         }
 
-        $page = $this->fetchPage($game);
-        $this->goalsCache[$game['id']] = ['at' => time(), 'page' => $page];
+        $goals = $this->fetchGoals($game);
+        $this->goalsCache[$game['id']] = ['at' => time(), 'goals' => $goals];
 
-        return $page;
+        return $goals;
     }
 
-    private function fetchPage(array $game): ?array
+    /** @return array|null raw ge list of the round, cached for a minute */
+    private function geGames(int $round): ?array
+    {
+        $cached = $this->geCache[$round] ?? null;
+        if ($cached && time() - $cached['at'] < self::GE_CACHE_SECONDS) {
+            return $cached['list'];
+        }
+
+        $url = sprintf(
+            'https://api.globoesporte.globo.com/tabela/%s/fase/%s/rodada/%d/jogos/',
+            self::GE_TABLE,
+            self::GE_PHASE,
+            $round
+        );
+        $list = json_decode((string) $this->fetch($url), true);
+        $list = is_array($list) ? $list : null;
+        // A failure is not cached, so the next call tries again.
+        if ($list !== null) {
+            $this->geCache[$round] = ['at' => time(), 'list' => $list];
+        }
+
+        return $list;
+    }
+
+    /**
+     * Brasileirão games known to the UOL realtime feed, keyed "home-slug|away-slug" (a pairing only
+     * happens once a season, so this also survives a rescheduled date).
+     *
+     * @return array<string, array{status: int, home: ?int, away: ?int}>
+     */
+    private function liveFeed(): array
+    {
+        if ($this->feedCache && time() - $this->feedCache['at'] < self::UOL_FEED_CACHE_SECONDS) {
+            return $this->feedCache['games'] ?? [];
+        }
+
+        $games = null;
+        $body = $this->fetch(self::UOL_FEED, 4);
+        if ($body !== null && preg_match('/^[^(]*\((.*)\);?\s*$/s', $body, $m)) {
+            $feed = json_decode($m[1], true)['subchannels'] ?? null;
+            if (is_array($feed)) {
+                $games = [];
+                foreach ($feed as $match) {
+                    $home = $match['t']['h'] ?? null;
+                    $away = $match['t']['a'] ?? null;
+                    if (($match['c']['sl'] ?? '') !== 'brasileirao' || empty($home['sl']) || empty($away['sl'])) {
+                        continue;
+                    }
+                    $games[$home['sl'] . '|' . $away['sl']] = [
+                        'status' => (int) ($match['st'] ?? 0),
+                        'home' => isset($home['g']) ? (int) $home['g'] : null,
+                        'away' => isset($away['g']) ? (int) $away['g'] : null,
+                    ];
+                }
+            }
+        }
+
+        $this->feedCache = ['at' => time(), 'games' => $games];
+
+        return $games ?? [];
+    }
+
+    private function fetchGoals(array $game): ?array
     {
         if (!$game['start']) {
             return null;
         }
 
+        // The query string skips the CDN's 60s cache: without it a new goal's scorer shows up late.
         $url = sprintf(
-            'https://placar.uol.com.br/esporte/futebol/brasileirao/%s/%s-x-%s.htm',
+            'https://placar.uol.com.br/esporte/futebol/brasileirao/%s/%s-x-%s.htm?_=%d',
             date('Y/m/d', $game['start']),
             self::slug($game['home']),
-            self::slug($game['away'])
+            self::slug($game['away']),
+            time()
         );
         $html = $this->fetch($url);
         if (!$html || !preg_match('#<script id="VUELAND_STATE" type="application/json">(.*?)</script>#s', $html, $m)) {
@@ -124,18 +189,8 @@ class LiveScoreClient
         }
 
         $board = json_decode($m[1], true)['football-scoreboard'] ?? null;
-        if (!is_array($board)) {
-            return null;
-        }
 
-        $snap = $board['jsonScoreAndStatusSnapshot'] ?? null;
-        $snapshot = is_array($snap) ? [
-            'home' => isset($snap['scr']['g']['h']) ? (int) $snap['scr']['g']['h'] : null,
-            'away' => isset($snap['scr']['g']['a']) ? (int) $snap['scr']['g']['a'] : null,
-            'ended' => ($snap['s'] ?? '') === 'match-ended',
-        ] : null;
-
-        return ['snapshot' => $snapshot, 'goals' => isset($board['goals']) ? $this->parseGoals($board) : null];
+        return is_array($board) && isset($board['goals']) ? $this->parseGoals($board) : null;
     }
 
     private function parseGoals(array $board): array
@@ -185,12 +240,12 @@ class LiveScoreClient
         return trim((string) $ascii, '-');
     }
 
-    private function fetch(string $url): ?string
+    private function fetch(string $url, int $timeout = 8): ?string
     {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 8,
+            CURLOPT_TIMEOUT => $timeout,
             CURLOPT_CONNECTTIMEOUT => 4,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS => 3,
