@@ -9,6 +9,24 @@ use Cartoleirao\Models\PushSubscription;
 header('Content-Type: application/json');
 
 $input = json_decode((string) file_get_contents('php://input'), true);
+
+// Native Android app: registers/removes its Firebase token.
+if (is_array($input) && ($input['type'] ?? '') === 'fcm') {
+    $token = (string) ($input['token'] ?? '');
+    if (!preg_match('/^[A-Za-z0-9_:\-]{50,4096}$/', $token)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Token inválido']);
+        exit;
+    }
+    if (($input['action'] ?? '') === 'unsubscribe') {
+        PushSubscription::deleteFcmToken($token);
+    } else {
+        PushSubscription::saveFcmToken($token, $_SERVER['HTTP_USER_AGENT'] ?? null);
+    }
+    echo json_encode(['ok' => true]);
+    exit;
+}
+
 $endpoint = is_array($input) ? (string) ($input['endpoint'] ?? '') : '';
 $host = (string) parse_url($endpoint, PHP_URL_HOST);
 

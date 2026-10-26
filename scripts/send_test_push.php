@@ -14,8 +14,8 @@ use Cartoleirao\Models\PushSubscription;
 use Cartoleirao\Services\WebPush;
 
 $push = WebPush::fromEnv();
-if (!$push) {
-    fwrite(STDERR, "VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY não configuradas.\n");
+if (!$push && !\Cartoleirao\Services\FcmClient::fromEnv()) {
+    fwrite(STDERR, "Nem VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY nem FCM_SERVICE_ACCOUNT_FILE configuradas.\n");
     exit(1);
 }
 

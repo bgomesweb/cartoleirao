@@ -14,3 +14,6 @@ error_log
 /public/scripts/
 /public/cron/
 .DS_Store
+
+# Credenciais do Firebase (ficam só no servidor)
+/firebase-service-account*.json

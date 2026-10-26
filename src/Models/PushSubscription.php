@@ -24,6 +24,23 @@ class PushSubscription
         ]);
     }
 
+    public static function saveFcmToken(string $token, ?string $userAgent): void
+    {
+        Connection::get()->prepare('
+            INSERT INTO fcm_tokens (token_hash, token, user_agent) VALUES (:hash, :token, :ua)
+            ON DUPLICATE KEY UPDATE user_agent = VALUES(user_agent)
+        ')->execute([
+            ':hash' => hash('sha256', $token),
+            ':token' => $token,
+            ':ua' => $userAgent !== null ? mb_substr($userAgent, 0, 255) : null,
+        ]);
+    }
+
+    public static function deleteFcmToken(string $token): void
+    {
+        Connection::get()->prepare('DELETE FROM fcm_tokens WHERE token_hash = ?')->execute([hash('sha256', $token)]);
+    }
+
     public static function deleteByEndpoint(string $endpoint): void
     {
         Connection::get()->prepare('DELETE FROM push_subscriptions WHERE endpoint_hash = ?')
@@ -44,13 +61,21 @@ class PushSubscription
         return Connection::get()->query('SELECT id, endpoint, p256dh, auth FROM push_subscriptions')->fetchAll();
     }
 
-    /** Sends the payload to every subscribed device and drops the expired ones. Returns the number delivered. */
-    public static function broadcast(\Cartoleirao\Services\WebPush $push, string $title, string $body, string $url = '/jogos.php'): int
+    /**
+     * Sends to the Android app (FCM) and to every Web Push subscription, dropping the expired ones.
+     * Returns the number of devices delivered. Either channel may be absent ($push null / FCM not configured).
+     */
+    public static function broadcast(?\Cartoleirao\Services\WebPush $push, string $title, string $body, string $url = '/jogos.php'): int
     {
-        $subs = self::all();
+        $fcmOk = 0;
+        if ($fcm = \Cartoleirao\Services\FcmClient::fromEnv()) {
+            [$fcmOk, $fcmTotal] = $fcm->broadcast($title, $body, $url);
+            echo "[fcm] \"{$body}\" -> entregue a {$fcmOk} de {$fcmTotal} app(s)\n";
+        }
+
+        $subs = $push ? self::all() : [];
         if (!$subs) {
-            echo "[push] nenhum aparelho inscrito\n";
-            return 0;
+            return $fcmOk;
         }
 
         $results = $push->sendMany($subs, json_encode(['title' => $title, 'body' => $body, 'url' => $url], JSON_UNESCAPED_UNICODE));
@@ -71,6 +96,6 @@ class PushSubscription
         echo '[push] "' . $body . '" -> entregue a ' . $ok . ' de ' . count($subs) . ' aparelhos'
             . ($expired ? ', ' . count($expired) . ' expirado(s) removido(s)' : '') . "\n";
 
-        return $ok;
+        return $ok + $fcmOk;
     }
 }

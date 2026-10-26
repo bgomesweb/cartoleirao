@@ -70,8 +70,8 @@ class GoalNotifier
     {
         $this->hasWork = false;
 
-        if ($this->push === null) {
-            return 'chaves VAPID não configuradas';
+        if ($this->push === null && FcmClient::fromEnv() === null) {
+            return 'nem chaves VAPID nem conta de serviço do Firebase configuradas';
         }
 
         $games = $this->live->roundGames($round);

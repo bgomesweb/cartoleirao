@@ -34,3 +34,8 @@ putenv('EMAIL_FROM_NAME=Cartoleirão');
 putenv('PIX_KEY=19998970090');
 putenv('PIX_RECIPIENT=Bruno Gomes da Silva');
 putenv('LEAGUE_ADMIN_NAME=Bruno Gomes');
+
+// --- Notificações no app Android (Firebase Cloud Messaging) ---
+// Caminho do JSON da conta de serviço do Firebase (Configurações do projeto > Contas de serviço).
+// Deve ficar FORA da pasta pública.
+// putenv('FCM_SERVICE_ACCOUNT_FILE=/home/usuario/cartoleirao/firebase-service-account.json');

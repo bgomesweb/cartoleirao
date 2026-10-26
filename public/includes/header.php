@@ -49,7 +49,7 @@ $bonusRoundsModal = BonusRound::forCurrentRound($market['current_round'] ?? null
             </span>
         <?php endif; ?>
 
-        <?php if (getenv('VAPID_PUBLIC_KEY')): ?>
+        <?php if (getenv('VAPID_PUBLIC_KEY') && !str_contains($_SERVER['HTTP_USER_AGENT'] ?? '', 'CartoleiraoApp')): ?>
             <button type="button" id="btn-notificacoes" class="btn-bell ms-auto" data-vapid="<?= e(getenv('VAPID_PUBLIC_KEY')) ?>"
                     title="Ativar notificações de gol" aria-label="Notificações de gol">
                 <i class="fa-regular fa-bell"></i>
