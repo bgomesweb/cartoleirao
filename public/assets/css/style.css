@@ -984,3 +984,6 @@ a { color: var(--cartoleirao-navy-claro); }
 }
 .btn-bell.is-on { background: #ffd23f; color: #00165a; }
 .btn-bell + .site-nav { margin-left: .5rem; }
+.btn-bell + .btn-bell { margin-left: .5rem; }
+.btn-app { text-decoration: none; font-size: 1.15rem; }
+.btn-app:hover { color: #fff; background: rgba(255, 255, 255, .22); }

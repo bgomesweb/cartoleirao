@@ -49,8 +49,17 @@ $bonusRoundsModal = BonusRound::forCurrentRound($market['current_round'] ?? null
             </span>
         <?php endif; ?>
 
+        <?php $isApp = str_contains($_SERVER['HTTP_USER_AGENT'] ?? '', 'CartoleiraoApp'); ?>
+        <?php $showApp = !$isApp && is_file(__DIR__ . '/../downloads/app-cartoleirao.apk'); ?>
+        <?php if ($showApp): ?>
+            <a href="downloads/app-cartoleirao.apk" download="app-cartoleirao.apk" class="btn-bell btn-app ms-auto"
+               title="Baixar o app Android" aria-label="Baixar o app Android">
+                <i class="fa-brands fa-android"></i>
+            </a>
+        <?php endif; ?>
+
         <?php if (getenv('VAPID_PUBLIC_KEY') && !str_contains($_SERVER['HTTP_USER_AGENT'] ?? '', 'CartoleiraoApp')): ?>
-            <button type="button" id="btn-notificacoes" class="btn-bell ms-auto" data-vapid="<?= e(getenv('VAPID_PUBLIC_KEY')) ?>"
+            <button type="button" id="btn-notificacoes" class="btn-bell<?= $showApp ? '' : ' ms-auto' ?>" data-vapid="<?= e(getenv('VAPID_PUBLIC_KEY')) ?>"
                     title="Ativar notificações de gol" aria-label="Notificações de gol">
                 <i class="fa-regular fa-bell"></i>
             </button>
