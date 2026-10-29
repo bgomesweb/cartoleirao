@@ -44,9 +44,9 @@ class GoalNotifier
     }
 
     /** Round being played: the current one with the market closed, the previous one once it reopens; null if unknown. */
-    public function activeRound(): ?int
+    public function activeRound(?array $status = null): ?int
     {
-        $status = $this->cartola->marketStatus();
+        $status ??= $this->cartola->marketStatus();
         if (!$status || empty($status['rodada_atual'])) {
             return null;
         }

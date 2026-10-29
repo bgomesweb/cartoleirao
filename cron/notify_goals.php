@@ -11,6 +11,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use Cartoleirao\Services\CartolaApiClient;
 use Cartoleirao\Services\GoalNotifier;
 use Cartoleirao\Services\LiveScoreClient;
+use Cartoleirao\Services\ScheduleNotifier;
 use Cartoleirao\Services\WebPush;
 
 date_default_timezone_set('America/Sao_Paulo');
@@ -24,9 +25,17 @@ if (!GoalNotifier::lock()) {
     exit(0);
 }
 
-$notifier = new GoalNotifier(new CartolaApiClient(), new LiveScoreClient(), WebPush::fromEnv());
+$cartola = new CartolaApiClient();
+$notifier = new GoalNotifier($cartola, new LiveScoreClient(), WebPush::fromEnv());
 
-$round = $notifier->activeRound();
+$status = $cartola->marketStatus();
+
+// Avisos de mercado aberto/fechado e dos jogos do dia (uma vez cada); aproveitam este mesmo cron.
+$schedule = new ScheduleNotifier(WebPush::fromEnv());
+$schedule->notifyMarket($status);
+$schedule->notifyDailyGames();
+
+$round = $notifier->activeRound($status);
 if ($round === null) {
     echo '[notify_goals] ' . date('H:i:s') . " sem rodada em andamento (ou API do Cartola indisponível): nada a fazer\n";
     exit(0);
