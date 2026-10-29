@@ -25,10 +25,12 @@ class FcmClient
     {
         $file = (string) getenv('FCM_SERVICE_ACCOUNT_FILE');
         if ($file === '' || !is_readable($file)) {
+            error_log('[fcm] FCM_SERVICE_ACCOUNT_FILE ' . ($file === '' ? 'não definido' : "ilegível: {$file}"));
             return null;
         }
         $account = json_decode((string) file_get_contents($file), true);
         if (!is_array($account) || empty($account['project_id']) || empty($account['private_key']) || empty($account['client_email'])) {
+            error_log("[fcm] conta de serviço inválida em {$file}");
             return null;
         }
 
