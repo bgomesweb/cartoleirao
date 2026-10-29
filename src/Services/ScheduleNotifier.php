@@ -28,9 +28,44 @@ class ScheduleNotifier
 
     private PDO $pdo;
 
-    public function __construct(private ?WebPush $push)
+    /** @var array[]|null games of the round in progress, fetched once per run */
+    private ?array $games = null;
+
+    public function __construct(private ?WebPush $push, private ?CartolaApiClient $cartola = null)
     {
         $this->pdo = Connection::get();
+        $this->cartola ??= new CartolaApiClient();
+    }
+
+    /**
+     * Games straight from the Cartola API (/partidas), so the notices don't depend on the local
+     * `games` table being synced.
+     *
+     * @return array<int, array{id: int, played_at: string, home: string, away: string}> ordered by kick-off
+     */
+    private function games(): array
+    {
+        if ($this->games !== null) {
+            return $this->games;
+        }
+
+        $response = $this->cartola->currentGames();
+        $clubs = $response['clubes'] ?? [];
+        $games = [];
+        foreach ($response['partidas'] ?? [] as $g) {
+            if (empty($g['partida_data']) || empty($g['valida'])) {
+                continue;
+            }
+            $games[] = [
+                'id' => (int) $g['partida_id'],
+                'played_at' => substr((string) $g['partida_data'], 0, 19),
+                'home' => $clubs[$g['clube_casa_id']]['apelido'] ?? $clubs[$g['clube_casa_id']]['nome'] ?? '?',
+                'away' => $clubs[$g['clube_visitante_id']]['apelido'] ?? $clubs[$g['clube_visitante_id']]['nome'] ?? '?',
+            ];
+        }
+        usort($games, fn($a, $b) => [$a['played_at'], $a['id']] <=> [$b['played_at'], $b['id']]);
+
+        return $this->games = $games;
     }
 
     /**
@@ -79,18 +114,9 @@ class ScheduleNotifier
             return;
         }
 
-        $stmt = $this->pdo->prepare('
-            SELECT g.played_at, hc.name AS home, ac.name AS away
-            FROM games g
-            JOIN clubs hc ON hc.id = g.home_club_id
-            JOIN clubs ac ON ac.id = g.away_club_id
-            WHERE g.played_at >= :start AND g.played_at < :end
-            ORDER BY g.played_at, g.id
-        ');
-        $stmt->execute([':start' => $today . ' 00:00:00', ':end' => $today . ' 23:59:59']);
-        $games = $stmt->fetchAll();
+        $games = array_values(array_filter($this->games(), fn($g) => str_starts_with($g['played_at'], $today)));
         if (!$games) {
-            // games are synced every 10 min; keep trying until the day's list shows up
+            // no games today (or the API is down): try again on the next run
             return;
         }
 
@@ -109,20 +135,13 @@ class ScheduleNotifier
     {
         $now ??= new \DateTimeImmutable('now', new \DateTimeZone('America/Sao_Paulo'));
 
-        $stmt = $this->pdo->prepare('
-            SELECT g.id, hc.name AS home, ac.name AS away
-            FROM games g
-            JOIN clubs hc ON hc.id = g.home_club_id
-            JOIN clubs ac ON ac.id = g.away_club_id
-            WHERE g.played_at > :now AND g.played_at <= :limit
-            ORDER BY g.played_at, g.id
-        ');
-        $stmt->execute([
-            ':now' => $now->format('Y-m-d H:i:s'),
-            ':limit' => $now->modify('+' . self::KICKOFF_WARNING_MINUTES . ' minutes')->format('Y-m-d H:i:s'),
-        ]);
+        $from = $now->format('Y-m-d H:i:s');
+        $to = $now->modify('+' . self::KICKOFF_WARNING_MINUTES . ' minutes')->format('Y-m-d H:i:s');
 
-        foreach ($stmt->fetchAll() as $g) {
+        foreach ($this->games() as $g) {
+            if ($g['played_at'] <= $from || $g['played_at'] > $to) {
+                continue;
+            }
             $key = 'kickoff_' . $g['id'];
             if ($this->getState($key) !== null) {
                 continue;

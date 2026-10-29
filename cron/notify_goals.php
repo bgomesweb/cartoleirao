@@ -31,7 +31,7 @@ $notifier = new GoalNotifier($cartola, new LiveScoreClient(), WebPush::fromEnv()
 $status = $cartola->marketStatus();
 
 // Avisos de mercado aberto/fechado e dos jogos do dia (uma vez cada); aproveitam este mesmo cron.
-$schedule = new ScheduleNotifier(WebPush::fromEnv());
+$schedule = new ScheduleNotifier(WebPush::fromEnv(), $cartola);
 $schedule->notifyMarket($status);
 $schedule->notifyDailyGames();
 $schedule->notifyKickoffs();
