@@ -33,6 +33,7 @@ jobs:
             --exclude 'docker-compose.yml' \
             --exclude 'config.local.php' \
             --exclude 'config.local.php.*' \
+            --exclude 'firebase-service-account*.json' \
             --exclude 'vendor' \
             --exclude '*.log' \
             --exclude '*.zip' \
