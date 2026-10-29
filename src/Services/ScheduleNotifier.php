@@ -28,6 +28,17 @@ class ScheduleNotifier
 
     private PDO $pdo;
 
+    /** Cartola slug => club name. The API only gives nicknames ("Galo"), which aren't what people expect in the text. */
+    private const CLUB_NAMES = [
+        'atletico-mg' => 'Atlético-MG', 'atletico-pr' => 'Athletico-PR', 'bahia' => 'Bahia',
+        'botafogo' => 'Botafogo', 'bragantino' => 'Bragantino', 'chapecoense' => 'Chapecoense',
+        'corinthians' => 'Corinthians', 'coritiba' => 'Coritiba', 'cruzeiro' => 'Cruzeiro',
+        'flamengo' => 'Flamengo', 'fluminense' => 'Fluminense', 'gremio' => 'Grêmio',
+        'internacional' => 'Internacional', 'mirassol' => 'Mirassol', 'palmeiras' => 'Palmeiras',
+        'remo' => 'Remo', 'santos' => 'Santos', 'sao-paulo' => 'São Paulo', 'vasco' => 'Vasco',
+        'vitoria' => 'Vitória',
+    ];
+
     /** @var array[]|null games of the round in progress, fetched once per run */
     private ?array $games = null;
 
@@ -35,6 +46,13 @@ class ScheduleNotifier
     {
         $this->pdo = Connection::get();
         $this->cartola ??= new CartolaApiClient();
+    }
+
+    private static function clubName(array $club): string
+    {
+        $slug = (string) ($club['slug'] ?? '');
+
+        return self::CLUB_NAMES[$slug] ?? ($club['nome_fantasia'] ?? $club['nome'] ?? '?');
     }
 
     /**
@@ -59,8 +77,8 @@ class ScheduleNotifier
             $games[] = [
                 'id' => (int) $g['partida_id'],
                 'played_at' => substr((string) $g['partida_data'], 0, 19),
-                'home' => $clubs[$g['clube_casa_id']]['apelido'] ?? $clubs[$g['clube_casa_id']]['nome'] ?? '?',
-                'away' => $clubs[$g['clube_visitante_id']]['apelido'] ?? $clubs[$g['clube_visitante_id']]['nome'] ?? '?',
+                'home' => self::clubName($clubs[$g['clube_casa_id']] ?? []),
+                'away' => self::clubName($clubs[$g['clube_visitante_id']] ?? []),
             ];
         }
         usort($games, fn($a, $b) => [$a['played_at'], $a['id']] <=> [$b['played_at'], $b['id']]);
