@@ -14,6 +14,8 @@ use PDO;
  *   "Mercado aberto - Rodada 31: escale o seu time!" / "Mercado fechado - Rodada 31: a bola vai rolar!"
  *   "Jogos do dia 29/10/2026 - Corinthians x Palmeiras - 19:30 / São Paulo x Santos - 21:30"
  *
+ *   "O jogo entre Corinthians x Palmeiras vai começar! Fique ligado!" (10 minutes before kick-off)
+ *
  * What was already announced lives in `notification_state`, so each change/day is sent only once.
  */
 class ScheduleNotifier
@@ -22,6 +24,7 @@ class ScheduleNotifier
     private const MARKET_CLOSED = 2;
     /** The daily games notice goes out from this hour on (so it doesn't wake anyone up). */
     private const DAILY_FROM_HOUR = 8;
+    private const KICKOFF_WARNING_MINUTES = 10;
 
     private PDO $pdo;
 
@@ -99,6 +102,35 @@ class ScheduleNotifier
         ));
         $this->send('Jogos do dia ' . $now->format('d/m/Y'), $list, '/jogos.php');
         echo '[schedule] jogos do dia ' . $today . " notificados\n";
+    }
+
+    /** Warns about each game that kicks off within the next 10 minutes, once per game. */
+    public function notifyKickoffs(?\DateTimeImmutable $now = null): void
+    {
+        $now ??= new \DateTimeImmutable('now', new \DateTimeZone('America/Sao_Paulo'));
+
+        $stmt = $this->pdo->prepare('
+            SELECT g.id, hc.name AS home, ac.name AS away
+            FROM games g
+            JOIN clubs hc ON hc.id = g.home_club_id
+            JOIN clubs ac ON ac.id = g.away_club_id
+            WHERE g.played_at > :now AND g.played_at <= :limit
+            ORDER BY g.played_at, g.id
+        ');
+        $stmt->execute([
+            ':now' => $now->format('Y-m-d H:i:s'),
+            ':limit' => $now->modify('+' . self::KICKOFF_WARNING_MINUTES . ' minutes')->format('Y-m-d H:i:s'),
+        ]);
+
+        foreach ($stmt->fetchAll() as $g) {
+            $key = 'kickoff_' . $g['id'];
+            if ($this->getState($key) !== null) {
+                continue;
+            }
+            $this->setState($key, $now->format('Y-m-d H:i:s'));
+            $this->send('Vai começar!', "O jogo entre {$g['home']} x {$g['away']} vai começar! Fique ligado!", '/jogos.php');
+            echo "[schedule] início do jogo {$g['home']} x {$g['away']} notificado\n";
+        }
     }
 
     private function send(string $title, string $body, string $url): void

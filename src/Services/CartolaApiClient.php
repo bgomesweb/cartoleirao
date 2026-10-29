@@ -86,6 +86,58 @@ class CartolaApiClient
         return $this->get($this->baseUrl . '/atletas/pontuados');
     }
 
+    /** Current lineup of a team (the one for the round in progress). */
+    public function teamLineup(int $teamId): ?array
+    {
+        return $this->get($this->baseUrl . '/time/id/' . $teamId);
+    }
+
+    /**
+     * Lineups of several teams fetched in parallel.
+     *
+     * @param int[] $teamIds
+     * @return array<int, array> teamId => response (teams that failed are left out)
+     */
+    public function teamLineups(array $teamIds): array
+    {
+        $result = [];
+        foreach (array_chunk($teamIds, 10) as $chunk) {
+            $mh = curl_multi_init();
+            $handles = [];
+            foreach ($chunk as $id) {
+                $ch = curl_init($this->baseUrl . '/time/id/' . $id);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT => 10,
+                    CURLOPT_CONNECTTIMEOUT => 5,
+                    CURLOPT_HTTPHEADER => ['Accept: application/json'],
+                    CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_MAXREDIRS => 3,
+                ]);
+                curl_multi_add_handle($mh, $ch);
+                $handles[$id] = $ch;
+            }
+            do {
+                $status = curl_multi_exec($mh, $running);
+                if ($running) {
+                    curl_multi_select($mh, 1.0);
+                }
+            } while ($running && $status === CURLM_OK);
+
+            foreach ($handles as $id => $ch) {
+                $decoded = json_decode((string) curl_multi_getcontent($ch), true);
+                if (curl_getinfo($ch, CURLINFO_HTTP_CODE) < 400 && is_array($decoded)) {
+                    $result[$id] = $decoded;
+                }
+                curl_multi_remove_handle($mh, $ch);
+            }
+            curl_multi_close($mh);
+        }
+
+        return $result;
+    }
+
     public function gamesForRound(int $round): ?array
     {
         return $this->get($this->baseUrl . '/partidas/' . $round);

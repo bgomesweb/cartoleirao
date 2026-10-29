@@ -8,9 +8,12 @@ require_once __DIR__ . '/../src/Config/bootstrap.php';
 
 use Cartoleirao\Models\BonusRound;
 use Cartoleirao\Models\League;
+use Cartoleirao\Models\MarketStatus;
 use Cartoleirao\Models\OfficialLeagueTeam;
 use Cartoleirao\Models\Round;
 use Cartoleirao\Models\Score;
+use Cartoleirao\Services\CartolaApiClient;
+use Cartoleirao\Services\LiveRoundService;
 
 /** URL of this page keeping the current filters, overriding the given ones. */
 function rankingUrl(array $overrides = []): string
@@ -62,7 +65,12 @@ function paidBadge(array $row): string
 
 $leagues = League::all();
 $leagueId = isset($_GET['liga_id']) ? (int) $_GET['liga_id'] : ($leagues[0]['id'] ?? 0);
-$mode = ($_GET['modo'] ?? 'geral') === 'rodada' ? 'rodada' : 'geral';
+
+// With the market closed the round is being played: the default view is the live partial score.
+$market = MarketStatus::current();
+$liveRound = $market && $market['status_code'] === 2 ? $market['current_round'] : null;
+$requestedMode = $_GET['modo'] ?? ($liveRound ? 'ao-vivo' : 'geral');
+$mode = $requestedMode === 'rodada' ? 'rodada' : ($requestedMode === 'ao-vivo' && $liveRound ? 'ao-vivo' : 'geral');
 
 $currentLeague = null;
 foreach ($leagues as $league) {
@@ -103,7 +111,23 @@ if (!$isRoundRobin) {
         $selectedRound = Round::mostRecent();
     }
 
-    if ($leagueId) {
+    if ($leagueId && $mode === 'ao-vivo') {
+        // Total so far (rounds before the one being played) + the partial of the round in progress.
+        $baseRanking = Score::overallRankingUpToRound($leagueId, (int) $liveRound - 1);
+        $previousPositionMap = Score::positionMap($baseRanking);
+        $partials = (new LiveRoundService(new CartolaApiClient()))
+            ->partials(array_map(fn($t) => (int) $t['cartola_team_id'], $baseRanking), (int) $liveRound);
+        foreach ($baseRanking as $t) {
+            $partial = $partials[(int) $t['cartola_team_id']] ?? null;
+            $t['round_points'] = $partial['points'] ?? null;
+            $t['points'] = (float) $t['total_points'] + (float) ($partial['points'] ?? 0);
+            if ($partial && empty($t['crest_url'])) {
+                $t['crest_url'] = $partial['crest'];
+            }
+            $ranking[] = $t;
+        }
+        usort($ranking, fn($a, $b) => $b['points'] <=> $a['points']);
+    } elseif ($leagueId) {
         if ($mode === 'rodada' && $selectedRound) {
             $ranking = Score::rankingForRound($leagueId, (int) $selectedRound['id']);
 
@@ -172,6 +196,9 @@ require __DIR__ . '/includes/header.php';
 
         <?php if (!$isRoundRobin): ?>
             <div class="segmented" aria-label="Tipo de classificação">
+                <?php if ($liveRound): ?>
+                    <a href="<?= e(rankingUrl(['modo' => 'ao-vivo'])) ?>" class="<?= $mode === 'ao-vivo' ? 'active' : '' ?>"><i class="fa-solid fa-tower-broadcast"></i> Ao vivo</a>
+                <?php endif; ?>
                 <a href="<?= e(rankingUrl(['modo' => 'geral'])) ?>" class="<?= $mode === 'geral' ? 'active' : '' ?>">Geral</a>
                 <a href="<?= e(rankingUrl(['modo' => 'rodada'])) ?>" class="<?= $mode === 'rodada' ? 'active' : '' ?>">Por rodada</a>
             </div>
@@ -290,9 +317,16 @@ require __DIR__ . '/includes/header.php';
         <div class="empty-state"><i class="fa-solid fa-hourglass-half"></i>Ainda não há pontuações registradas para essa rodada.</div>
     <?php else: ?>
         <?php
-        $pointsLabel = $mode === 'rodada' ? 'pts na rodada' : 'pts';
+        $isLive = $mode === 'ao-vivo';
+        $pointsLabel = $isLive ? 'total' : ($mode === 'rodada' ? 'pts na rodada' : 'pts');
+        $roundGain = fn($r) => ($r['round_points'] ?? null) === null ? '' : '+' . number_format((float) $r['round_points'], 2, ',', '.') . ' na rodada';
+        $fmtPoints = fn($r) => ($r['points'] ?? $r['total_points'] ?? null) === null ? '—' : number_format((float) ($r['points'] ?? $r['total_points']), 2, ',', '.');
         $medals = [1 => '🥇', 2 => '🥈', 3 => '🥉'];
         ?>
+
+        <?php if ($isLive): ?>
+            <div class="live-note"><span class="live-dot"></span> Total + parcial da rodada <?= (int) $liveRound ?> em tempo real · setas comparam com a classificação geral antes da rodada</div>
+        <?php endif; ?>
 
         <?php if (count($ranking) >= 3): ?>
             <div class="podium" aria-label="Pódio">
@@ -303,7 +337,8 @@ require __DIR__ . '/includes/header.php';
                         <?= crestImg($r['crest_url'] ?? null, '') ?>
                         <div class="podium-name"><?= e(teamDisplayName($r)) ?></div>
                         <?php if (!empty($r['registrant_name'])): ?><div class="podium-owner"><?= e($r['registrant_name']) ?></div><?php endif; ?>
-                        <div class="podium-points"><?= number_format((float) ($r['points'] ?? $r['total_points']), 2, ',', '.') ?> <small><?= $pointsLabel ?></small></div>
+                        <div class="podium-points"><?= $fmtPoints($r) ?> <small><?= $pointsLabel ?></small>
+                        <?php if ($isLive): ?><span class="round-gain"><?= $roundGain($r) ?></span><?php endif; ?></div>
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -329,7 +364,11 @@ require __DIR__ . '/includes/header.php';
                     <?= crestImg($r['crest_url'] ?? null, 'rk-crest') ?>
                     <div class="min-w-0">
                         <div class="rk-name">
-                            <?= e(teamDisplayName($r)) ?>
+                            <?php if ($isLive): ?>
+                                <a href="time.php?id=<?= (int) $r['official_league_team_id'] ?>" class="rk-link"><?= e(teamDisplayName($r)) ?></a>
+                            <?php else: ?>
+                                <?= e(teamDisplayName($r)) ?>
+                            <?php endif; ?>
                             <?php if ($isBonusRoundChampion): ?>
                                 <span class="selo-campeao-bonus"><i class="fa-solid fa-trophy"></i> Campeão da rodada bônus</span>
                             <?php endif; ?>
@@ -343,8 +382,13 @@ require __DIR__ . '/includes/header.php';
                         </div>
                     </div>
                     <div class="rk-points">
-                        <?= number_format((float) ($r['points'] ?? $r['total_points']), 2, ',', '.') ?>
-                        <small><?= $mode === 'geral' ? (int) $r['scored_rounds'] . ' rodadas' : 'pts' ?></small>
+                        <?= $fmtPoints($r) ?>
+                        <?php if ($isLive): ?>
+                            <small>total</small>
+                            <span class="round-gain"><?= $roundGain($r) ?></span>
+                        <?php else: ?>
+                            <small><?= $mode === 'geral' ? (int) $r['scored_rounds'] . ' rodadas' : 'pts' ?></small>
+                        <?php endif; ?>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -354,4 +398,13 @@ require __DIR__ . '/includes/header.php';
 <?php endif; ?>
 </div>
 
+<?php if (($mode ?? '') === 'ao-vivo'): ?>
+<script>
+// Real-time partial: reloads every 30s (not while the tab is hidden or a search is typed).
+setInterval(function () {
+    var q = document.getElementById('busca-time');
+    if (!document.hidden && !(q && q.value)) { location.reload(); }
+}, 30000);
+</script>
+<?php endif; ?>
 <?php require __DIR__ . '/includes/footer.php'; ?>

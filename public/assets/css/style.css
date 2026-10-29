@@ -987,3 +987,38 @@ a { color: var(--cartoleirao-navy-claro); }
 .btn-bell + .btn-bell { margin-left: .5rem; }
 .btn-app { text-decoration: none; font-size: 1.15rem; }
 .btn-app:hover { color: #fff; background: rgba(255, 255, 255, .22); }
+
+/* ---------- Parcial ao vivo / página do time ---------- */
+.live-note { display: flex; align-items: center; gap: .5rem; color: var(--muted); font-size: .8rem; font-weight: 600; margin-bottom: .75rem; }
+.live-dot { width: 9px; height: 9px; border-radius: 50%; background: #dc3545; animation: live-pulse 1.4s ease-in-out infinite; }
+@keyframes live-pulse { 50% { opacity: .25; } }
+
+.rk-link { color: inherit; text-decoration: none; }
+.rk-link:hover { text-decoration: underline; }
+
+.back-link { display: inline-block; margin-bottom: .75rem; color: var(--cartoleirao-navy); font-weight: 600; text-decoration: none; font-size: .9rem; }
+
+.team-head { display: flex; align-items: center; gap: .9rem; background: var(--surface); border-radius: 14px; padding: .9rem 1rem; margin-bottom: 1rem; box-shadow: 0 1px 2px rgba(0, 22, 90, .05); }
+.team-head h1 { font-size: 1.15rem; font-weight: 800; margin: 0; color: var(--cartoleirao-navy); overflow: hidden; text-overflow: ellipsis; }
+.team-head-sub { color: var(--muted); font-size: .85rem; }
+.team-head .rk-points { margin-left: auto; font-size: 1.3rem; }
+.team-head-crest { width: 52px; height: 52px; object-fit: contain; flex: none; }
+
+.player-row { grid-template-columns: 48px minmax(0, 1fr) auto; }
+.player-row.not-played { opacity: .65; }
+.player-photo { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: #eef1f9; }
+.player-club { width: 14px; height: 14px; object-fit: contain; }
+.captain-badge { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--cartoleirao-navy); color: #fff; font-size: .65rem; font-weight: 800; margin-left: .25rem; }
+
+/* Banco de reservas e substituições */
+.bench-title { font-size: 1rem; font-weight: 800; color: var(--cartoleirao-navy); margin: 1.5rem 0 .6rem; }
+.luxury-badge { background: #e5a800; }
+.player-row.sub-out { background: #fdecee; border-left-color: #dc3545; }
+.player-row.sub-in { background: #e8f6ee; border-left-color: #198754; }
+.sub-tag { display: inline-block; font-size: .68rem; font-weight: 700; margin-left: .35rem; padding: .05rem .45rem; border-radius: 999px; white-space: normal; }
+.sub-tag-out { color: #b02a37; background: #f8d7da; }
+.sub-tag-in { color: #146c43; background: #d1e7dd; }
+
+.round-gain { display: block; font-size: .72rem; font-weight: 800; color: #198754; background: #d1e7dd; border-radius: 999px; padding: .05rem .5rem; margin-top: .15rem; }
+.round-gain:empty { display: none; }
+.podium-points .round-gain { display: inline-block; }

@@ -34,6 +34,7 @@ $status = $cartola->marketStatus();
 $schedule = new ScheduleNotifier(WebPush::fromEnv());
 $schedule->notifyMarket($status);
 $schedule->notifyDailyGames();
+$schedule->notifyKickoffs();
 
 $round = $notifier->activeRound($status);
 if ($round === null) {
