@@ -1,11 +1,20 @@
 <footer class="site-footer">
     <div class="container">
         <strong>🏆 Cartoleirão</strong> · Cartola FC · Brasileirão Série A
+        <div class="mt-1"><a href="privacidade.php">Política de Privacidade</a></div>
     </div>
 </footer>
+<div id="cookie-banner" class="cookie-banner d-none" role="dialog" aria-live="polite" aria-label="Aviso de cookies">
+    <p class="mb-2">
+        🍪 Usamos apenas armazenamento essencial para o site funcionar, sem rastreamento nem publicidade.
+        Saiba mais na <a href="privacidade.php">Política de Privacidade</a>.
+    </p>
+    <button type="button" id="cookie-ok" class="btn btn-primary btn-sm">Entendi</button>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/site.js?v=<?= @filemtime(__DIR__ . '/../assets/js/site.js') ?: time() ?>"></script>
+<script src="assets/js/cookies.js?v=<?= @filemtime(__DIR__ . '/../assets/js/cookies.js') ?: time() ?>"></script>
 <?php if (getenv('VAPID_PUBLIC_KEY')): ?>
     <div class="modal fade" id="modalNotificacoes" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
