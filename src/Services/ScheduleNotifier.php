@@ -12,9 +12,9 @@ use PDO;
  * Push notifications (site and Android app) that aren't tied to a live match:
  *
  *   "Mercado aberto - Rodada 31: escale o seu time!" / "Mercado fechado - Rodada 31: a bola vai rolar!"
- *   "Jogos do dia 29/10/2026 - Corinthians x Palmeiras - 19:30 / São Paulo x Santos - 21:30"
+ *   "Jogos do dia 29/10/2026" + one line per game: "Corinthians x Palmeiras - 19:30 (Sportv, Premiere, Record)"
  *
- *   "O jogo entre Corinthians x Palmeiras vai começar! Fique ligado!" (10 minutes before kick-off)
+ *   "O jogo entre Corinthians x Palmeiras (Sportv, Premiere, Record) vai começar! Fique ligado!" (10 minutes before kick-off)
  *
  * What was already announced lives in `notification_state`, so each change/day is sent only once.
  */
@@ -39,6 +39,12 @@ class ScheduleNotifier
         'vitoria' => 'Vitória',
     ];
 
+    /** "Home x Away" => where it's broadcast. Games not listed here go out without the broadcast. */
+    private const BROADCASTS = [
+        'Corinthians x Palmeiras' => 'Sportv, Premiere, Record',
+        'São Paulo x Santos' => 'Cazé TV',
+    ];
+
     /** @var array[]|null games of the round in progress, fetched once per run */
     private ?array $games = null;
 
@@ -53,6 +59,15 @@ class ScheduleNotifier
         $slug = (string) ($club['slug'] ?? '');
 
         return self::CLUB_NAMES[$slug] ?? ($club['nome_fantasia'] ?? $club['nome'] ?? '?');
+    }
+
+    /** "Home x Away (Channel, Channel)", or just the teams when the broadcast isn't known. */
+    private static function matchLabel(array $g): string
+    {
+        $label = "{$g['home']} x {$g['away']}";
+        $tv = self::BROADCASTS[$label] ?? null;
+
+        return $tv ? "{$label} ({$tv})" : $label;
     }
 
     /**
@@ -140,8 +155,9 @@ class ScheduleNotifier
 
         $this->setState('daily_games', $today);
 
-        $list = implode(' / ', array_map(
-            fn(array $g) => "{$g['home']} x {$g['away']} - " . substr((string) $g['played_at'], 11, 5),
+        // one game per line (a "\n" shows as a line break in both the site and the app notification)
+        $list = implode("\n", array_map(
+            fn(array $g) => self::matchLabel($g) . ' - ' . substr((string) $g['played_at'], 11, 5),
             $games
         ));
         $this->send('Jogos do dia ' . $now->format('d/m/Y'), $list, '/jogos.php');
@@ -165,7 +181,7 @@ class ScheduleNotifier
                 continue;
             }
             $this->setState($key, $now->format('Y-m-d H:i:s'));
-            $this->send('Vai começar!', "O jogo entre {$g['home']} x {$g['away']} vai começar! Fique ligado!", '/jogos.php');
+            $this->send('Vai começar!', "O jogo entre " . self::matchLabel($g) . " vai começar! Fique ligado!", '/jogos.php');
             echo "[schedule] início do jogo {$g['home']} x {$g['away']} notificado\n";
         }
     }
