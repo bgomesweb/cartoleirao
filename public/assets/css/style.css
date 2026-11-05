@@ -277,7 +277,7 @@ a { color: var(--cartoleirao-navy-claro); }
 
 .hero-ball {
     width: 150px;
-    height: 150px;
+    height: 165px;
     flex-shrink: 0;
     filter: drop-shadow(0 12px 28px rgba(0, 0, 0, .4));
     animation: ball-float 5s ease-in-out infinite;

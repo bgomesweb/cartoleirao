@@ -98,18 +98,35 @@ require __DIR__ . '/includes/header.php';
                     <?php endif; ?>
                 </div>
             </div>
-            <svg class="hero-ball d-none d-sm-block" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <circle cx="100" cy="100" r="95" fill="#ffffff"/>
-                <g fill="#00165a">
-                    <polygon points="100,55 122,71 113,97 87,97 78,71"/>
-                    <polygon points="100,55 78,71 60,55 70,30 130,30 140,55 122,71"/>
-                    <polygon points="87,97 113,97 121,122 100,140 79,122"/>
-                    <polygon points="60,55 40,80 47,110 78,71"/>
-                    <polygon points="140,55 160,80 153,110 122,71"/>
-                    <polygon points="47,110 79,122 70,150 40,140"/>
-                    <polygon points="153,110 121,122 130,150 160,140"/>
+            <svg class="hero-ball d-none d-sm-block" viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <!-- prancheta do técnico: campo com a escalação e as setas de jogada -->
+                <rect x="14" y="14" width="172" height="198" rx="14" fill="#c98a3d"></rect>
+                <rect x="24" y="30" width="152" height="172" rx="8" fill="#1f8f4e"></rect>
+                <g fill="none" stroke="#ffffff" stroke-width="2" opacity=".85">
+                    <rect x="32" y="38" width="136" height="156"></rect>
+                    <line x1="32" y1="116" x2="168" y2="116"></line>
+                    <circle cx="100" cy="116" r="18"></circle>
+                    <rect x="68" y="38" width="64" height="26"></rect>
+                    <rect x="68" y="168" width="64" height="26"></rect>
                 </g>
-                <circle cx="100" cy="100" r="95" fill="none" stroke="#00165a" stroke-width="4"/>
+                <!-- jogadores (4-3-3) -->
+                <g fill="#00165a" stroke="#ffffff" stroke-width="2">
+                    <circle cx="100" cy="180" r="6"></circle>
+                    <circle cx="52" cy="154" r="6"></circle><circle cx="82" cy="158" r="6"></circle>
+                    <circle cx="118" cy="158" r="6"></circle><circle cx="148" cy="154" r="6"></circle>
+                    <circle cx="66" cy="124" r="6"></circle><circle cx="100" cy="132" r="6"></circle><circle cx="134" cy="124" r="6"></circle>
+                    <circle cx="56" cy="82" r="6"></circle><circle cx="144" cy="82" r="6"></circle>
+                </g>
+                <circle cx="100" cy="76" r="7" fill="#ffd54a" stroke="#ffffff" stroke-width="2"></circle>
+                <!-- setas de jogada -->
+                <g fill="none" stroke="#ffd54a" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="5 5">
+                    <path d="M100 126 C100 108 100 96 100 86"></path>
+                    <path d="M56 76 C64 58 80 52 94 54"></path>
+                </g>
+                <polygon points="95,90 105,90 100,80" fill="#ffd54a"></polygon>
+                <!-- clipe da prancheta -->
+                <rect x="70" y="4" width="60" height="22" rx="6" fill="#d9dde8" stroke="#00165a" stroke-width="3"></rect>
+                <rect x="88" y="10" width="24" height="6" rx="3" fill="#00165a"></rect>
             </svg>
         </div>
     </div>
