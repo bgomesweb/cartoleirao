@@ -39,19 +39,17 @@ class ScheduleNotifier
         'vitoria' => 'Vitória',
     ];
 
-    /** "Home x Away" => where it's broadcast. Games not listed here go out without the broadcast. */
-    private const BROADCASTS = [
-        'Corinthians x Palmeiras' => 'Sportv, Premiere, Record',
-        'São Paulo x Santos' => 'Cazé TV',
-    ];
-
     /** @var array[]|null games of the round in progress, fetched once per run */
     private ?array $games = null;
 
-    public function __construct(private ?WebPush $push, private ?CartolaApiClient $cartola = null)
-    {
+    public function __construct(
+        private ?WebPush $push,
+        private ?CartolaApiClient $cartola = null,
+        private ?BroadcastClient $broadcasts = null
+    ) {
         $this->pdo = Connection::get();
         $this->cartola ??= new CartolaApiClient();
+        $this->broadcasts ??= new BroadcastClient();
     }
 
     private static function clubName(array $club): string
@@ -62,10 +60,10 @@ class ScheduleNotifier
     }
 
     /** "Home x Away (Channel, Channel)", or just the teams when the broadcast isn't known. */
-    private static function matchLabel(array $g): string
+    private function matchLabel(array $g): string
     {
         $label = "{$g['home']} x {$g['away']}";
-        $tv = self::BROADCASTS[$label] ?? null;
+        $tv = $this->broadcasts->channels($g['home'], $g['away'], substr($g['played_at'], 0, 10));
 
         return $tv ? "{$label} ({$tv})" : $label;
     }
@@ -157,7 +155,7 @@ class ScheduleNotifier
 
         // one game per line (a "\n" shows as a line break in both the site and the app notification)
         $list = implode("\n", array_map(
-            fn(array $g) => self::matchLabel($g) . ' - ' . substr((string) $g['played_at'], 11, 5),
+            fn(array $g) => $this->matchLabel($g) . ' - ' . substr((string) $g['played_at'], 11, 5),
             $games
         ));
         $this->send('Jogos do dia ' . $now->format('d/m/Y'), $list, '/jogos.php');
@@ -181,7 +179,7 @@ class ScheduleNotifier
                 continue;
             }
             $this->setState($key, $now->format('Y-m-d H:i:s'));
-            $this->send('Vai começar!', "O jogo entre " . self::matchLabel($g) . " vai começar! Fique ligado!", '/jogos.php');
+            $this->send('Vai começar!', "O jogo entre " . $this->matchLabel($g) . " vai começar! Fique ligado!", '/jogos.php');
             echo "[schedule] início do jogo {$g['home']} x {$g['away']} notificado\n";
         }
     }
