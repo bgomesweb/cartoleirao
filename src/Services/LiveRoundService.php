@@ -116,6 +116,7 @@ class LiveRoundService
                 'photo' => self::photoUrl($live['foto'] ?? $p['photo']),
                 'raw_points' => $live ? (float) $live['pontuacao'] : 0.0,
                 'played' => $live !== null && $live['played'],
+                'scout' => $live['scout'] ?? [],
                 'position' => $scores['positions'][$p['position_id']] ?? '',
                 'club' => $scores['clubs'][$p['club_id']] ?? ['name' => '', 'crest' => null],
                 'sub' => null,        // 'out' (starter replaced) | 'in' (bench player who entered)
@@ -204,6 +205,7 @@ class LiveRoundService
                 'pontuacao' => $a['pontuacao'] ?? 0,
                 'foto' => $a['foto'] ?? null,
                 'played' => (bool) ($a['entrou_em_campo'] ?? false),
+                'scout' => $a['scout'] ?? [],
             ];
         }
         foreach ($response['clubes'] ?? [] as $id => $c) {

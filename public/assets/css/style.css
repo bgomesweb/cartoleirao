@@ -1036,3 +1036,49 @@ body.has-tabbar .cookie-banner { bottom: calc(4.5rem + env(safe-area-inset-botto
 .round-gain { display: block; font-size: .72rem; font-weight: 800; color: #198754; background: #d1e7dd; border-radius: 999px; padding: .05rem .5rem; margin-top: .15rem; }
 .round-gain:empty { display: none; }
 .podium-points .round-gain { display: inline-block; }
+
+/* Desempenho do time */
+.perf-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .6rem; margin-bottom: 1rem; }
+.perf-stat { background: var(--surface); border-radius: 12px; padding: .7rem .85rem; box-shadow: 0 1px 2px rgba(0, 22, 90, .05); display: flex; flex-direction: column; }
+.perf-stat small { color: var(--muted); font-size: .72rem; font-weight: 600; text-transform: uppercase; }
+.perf-stat b { font-size: 1.15rem; color: var(--cartoleirao-navy); }
+.perf-stat span { font-size: .75rem; color: var(--muted); }
+.perf-chart { position: relative; height: 260px; background: var(--surface); border-radius: 14px; padding: .75rem; margin-bottom: 1rem; box-shadow: 0 1px 2px rgba(0, 22, 90, .05); }
+.btn-desempenho { display: inline-block; margin-left: .4rem; padding: .05rem .5rem; border-radius: 999px; background: var(--cartoleirao-navy); color: #fff; font-size: .7rem; font-weight: 700; text-decoration: none; vertical-align: middle; }
+.btn-desempenho:hover { color: #fff; opacity: .85; }
+
+/* Modal do jogador (acompanhamento ao vivo) */
+.player-open { cursor: pointer; }
+.pj-photo { width: 110px; height: 110px; border-radius: 50%; object-fit: cover; background: #eef1f9; margin-bottom: .5rem; }
+.pj-name { font-weight: 800; color: var(--cartoleirao-navy); margin: 0; }
+.pj-points { font-size: 2rem; font-weight: 800; color: var(--cartoleirao-navy); margin-top: .5rem; }
+.pj-points small { font-size: .9rem; color: var(--muted); }
+.pj-scouts { list-style: none; padding: 0; margin: .75rem 0 0; text-align: left; }
+.pj-scouts li { display: flex; justify-content: space-between; padding: .3rem .6rem; border-radius: 8px; margin-bottom: .25rem; font-size: .88rem; }
+.pj-scouts li.pos { background: rgba(26, 157, 85, .1); color: #137a41; }
+.pj-scouts li.neg { background: rgba(211, 58, 58, .1); color: #b32d2d; }
+.pj-scouts .pj-empty { justify-content: center; background: none; color: var(--muted); }
+.player-link { transition: color .15s; }
+.player-open:hover .player-link, .player-open:focus-visible .player-link { color: var(--cartoleirao-navy); text-decoration: underline; text-underline-offset: 3px; }
+.player-open:hover { background: #f4f7ff; }
+
+/* Resumo da rodada (modal da página inicial com o mercado aberto) */
+.recap-dialog { max-width: 1120px; width: 96vw; height: 94vh; margin: 3vh auto; }
+.recap-dialog .modal-content { height: 100%; }
+.recap-header { background: var(--cartoleirao-navy); color: #fff; }
+.recap-header .modal-title { font-weight: 800; font-size: 1.4rem; }
+.recap-tag { font-size: .7rem; font-weight: 700; letter-spacing: .08em; opacity: .75; }
+.recap-league { margin-bottom: 1.5rem; }
+.recap-league h3 { font-size: 1.1rem; font-weight: 800; color: var(--cartoleirao-navy); margin-bottom: .5rem; }
+.recap-sub { font-size: .8rem; font-weight: 700; text-transform: uppercase; margin: .75rem 0 .4rem; }
+.recap-best { color: #137a41; }
+.recap-worst { color: #b32d2d; }
+.recap-row.recap-bad { border-left-color: #d33a3a; }
+.recap-zoeira { background: #fff8e1; border-radius: 12px; padding: .9rem 1.1rem; }
+.recap-zoeira p { margin: 0 0 .6rem; font-weight: 600; }
+.recap-zoeira p:last-child { margin-bottom: 0; }
+.btn-ghost-dark { background: transparent; border: 1px solid #c8cfe2; color: var(--cartoleirao-navy); }
+@media (max-width: 576px) { .recap-dialog { width: 100vw; height: 100vh; margin: 0; } .recap-dialog .modal-content { border-radius: 0; } }
+
+.recap-row { margin-bottom: .3rem; }
+.recap-row .rk-crest { width: 38px; height: 38px; object-fit: contain; }

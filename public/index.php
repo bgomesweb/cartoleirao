@@ -10,6 +10,7 @@ use Cartoleirao\Models\League;
 use Cartoleirao\Models\MarketStatus;
 use Cartoleirao\Models\OfficialLeagueTeam;
 use Cartoleirao\Models\Season;
+use Cartoleirao\Services\RoundRecap;
 
 /**
  * Recognizes lines in the "1º Campeão: R$950,00" pattern inside the free-text
@@ -50,6 +51,19 @@ try {
 
 $market = MarketStatus::current();
 $totalTeams = array_sum($teamCounts);
+
+// With the market open, a recap of the round that just ended pops up on the home page.
+$recap = null;
+if (!$dbError && $market && $market['status_code'] === 1) {
+    try {
+        $recap = RoundRecap::forMarketOpening((int) $market['current_round']);
+    } catch (\Throwable $e) {
+        $recap = null;
+    }
+}
+if ($recap) {
+    $extraScripts = ['assets/js/resumo-rodada.js?v=' . (@filemtime(__DIR__ . '/assets/js/resumo-rodada.js') ?: time())];
+}
 
 $pageTitle = 'Início';
 require __DIR__ . '/includes/header.php';
@@ -194,5 +208,9 @@ require __DIR__ . '/includes/header.php';
         </div>
     </div>
 </section>
+
+<?php if ($recap): ?>
+    <?php require __DIR__ . '/includes/resumo-rodada.php'; ?>
+<?php endif; ?>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

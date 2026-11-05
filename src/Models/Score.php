@@ -63,6 +63,25 @@ class Score
         return $stmt->fetchAll();
     }
 
+    /** Teams of a league ordered by the points of one round (best first), with the president's name. */
+    public static function roundResults(int $leagueId, int $roundNumber): array
+    {
+        $pdo = Connection::get();
+        $stmt = $pdo->prepare('
+            SELECT t.id AS official_league_team_id, t.team_name, t.cartola_team_id, t.crest_url,
+                   t.owner_name, sc.points
+            FROM scores sc
+            JOIN rounds r ON r.id = sc.round_id
+            JOIN official_league_teams t ON t.id = sc.official_league_team_id
+            WHERE t.league_id = :league_id AND r.number = :number
+              AND r.season_id = :season_id AND t.season_id = :season_id2
+            ORDER BY sc.points DESC, t.team_name ASC
+        ');
+        $stmt->execute([':league_id' => $leagueId, ':number' => $roundNumber, ':season_id' => Season::activeId(), ':season_id2' => Season::activeId()]);
+
+        return $stmt->fetchAll();
+    }
+
     /** Overall ranking (sum of all scored rounds so far) of a season (default: the active one). */
     public static function overallRanking(int $leagueId, ?int $seasonId = null): array
     {
@@ -104,6 +123,22 @@ class Score
         $stmt->execute([':league_id' => $leagueId, ':number_limit' => $roundNumberLimit, ':season_id' => Season::activeId(), ':round_season_id' => Season::activeId()]);
 
         return $stmt->fetchAll();
+    }
+
+    /** Round numbers (asc) of the season in which this team has a score. */
+    public static function roundNumbersForTeam(int $officialLeagueTeamId, ?int $seasonId = null): array
+    {
+        $pdo = Connection::get();
+        $stmt = $pdo->prepare('
+            SELECT r.number
+            FROM scores sc
+            JOIN rounds r ON r.id = sc.round_id
+            WHERE sc.official_league_team_id = :team_id AND r.season_id = :season_id
+            ORDER BY r.number
+        ');
+        $stmt->execute([':team_id' => $officialLeagueTeamId, ':season_id' => $seasonId ?? Season::activeId()]);
+
+        return array_map('intval', $stmt->fetchAll(\PDO::FETCH_COLUMN));
     }
 
     /** Round numbers (desc) that already have at least one score for this league. */

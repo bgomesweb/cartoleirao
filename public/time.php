@@ -30,6 +30,42 @@ $president = $partial['president'] ?? ($team['owner_name'] ?? null);
 
 $crest = $team['crest_url'] ?? ($partial['crest'] ?? null);
 
+/** Scout code => [label, is negative]. Shown in the player modal. */
+const SCOUT_LABELS = [
+    'G' => ['Gol', false], 'A' => ['Assistência', false], 'FT' => ['Finalização na trave', false],
+    'FD' => ['Finalização defendida', false], 'FF' => ['Finalização pra fora', false],
+    'FS' => ['Falta sofrida', false], 'PS' => ['Pênalti sofrido', false], 'DS' => ['Desarme', false],
+    'RB' => ['Roubada de bola', false], 'SG' => ['Jogo sem sofrer gol', false], 'DE' => ['Defesa', false],
+    'DP' => ['Defesa de pênalti', false], 'PP' => ['Pênalti perdido', true], 'GC' => ['Gol contra', true],
+    'CV' => ['Cartão vermelho', true], 'CA' => ['Cartão amarelo', true], 'FC' => ['Falta cometida', true],
+    'GS' => ['Gol sofrido', true], 'PC' => ['Pênalti cometido', true], 'I' => ['Impedimento', true],
+    'PE' => ['Passe errado', true],
+];
+
+/** What the player modal needs, as the JSON of the row's data attribute. */
+function playerModalData(array $p): string
+{
+    $scouts = [];
+    foreach ($p['scout'] as $code => $qty) {
+        [$label, $negative] = SCOUT_LABELS[$code] ?? [$code, false];
+        $scouts[] = ['label' => $label, 'qty' => (int) $qty, 'negative' => $negative];
+    }
+    $active = $p['played'] && $p['sub'] !== 'out';
+
+    return json_encode([
+        'name' => $p['name'],
+        'photo' => $p['photo'],
+        'info' => trim($p['position'] . ' · ' . $p['club']['name'], ' ·'),
+        'played' => $p['played'],
+        'points' => $active ? number_format($p['points'], 2, ',', '.') : null,
+        'raw' => number_format($p['raw_points'], 2, ',', '.'),
+        'captain' => $p['captain'],
+        'luxury' => $p['luxury'],
+        'status' => $p['sub'] === 'out' ? 'Substituído' : (!$p['played'] ? 'Ainda não jogou' : null),
+        'scouts' => $scouts,
+    ], JSON_UNESCAPED_UNICODE);
+}
+
 function playerRow(array $p): string
 {
     $classes = 'rk-row player-row'
@@ -39,7 +75,7 @@ function playerRow(array $p): string
     $active = $p['played'] && $p['sub'] !== 'out';
 
     ob_start(); ?>
-    <div class="<?= $classes ?>">
+    <div class="<?= $classes ?> player-open" role="button" tabindex="0" data-player="<?= e(playerModalData($p)) ?>">
         <?php if (!empty($p['photo'])): ?>
             <img src="<?= e($p['photo']) ?>" class="player-photo" alt="" loading="lazy">
         <?php else: ?>
@@ -47,7 +83,7 @@ function playerRow(array $p): string
         <?php endif; ?>
         <div class="min-w-0">
             <div class="rk-name">
-                <?= e($p['name']) ?>
+                <span class="player-link" title="Ver pontuação e scouts"><?= e($p['name']) ?></span>
                 <?php if ($p['captain']): ?><span class="captain-badge" title="Capitão (1,5x)">C</span><?php endif; ?>
                 <?php if ($p['luxury']): ?><span class="captain-badge luxury-badge" title="Reserva de luxo (1,5x se entrar)">L</span><?php endif; ?>
                 <?php if ($p['sub'] === 'out'): ?><span class="sub-tag sub-tag-out"><i class="fa-solid fa-arrow-right-from-bracket"></i> saiu · entrou <?= e($p['sub_with']) ?></span><?php endif; ?>
@@ -115,9 +151,65 @@ require __DIR__ . '/includes/header.php';
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
+            <div class="modal fade" id="modalJogador" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-sm">
+                    <div class="modal-content">
+                        <div class="modal-body text-center py-4 px-4">
+                            <img id="pj-photo" class="pj-photo" alt="">
+                            <h5 class="pj-name" id="pj-name"></h5>
+                            <div class="rk-sub" id="pj-info"></div>
+                            <div class="pj-points" id="pj-points"></div>
+                            <div class="rk-sub" id="pj-note"></div>
+                            <ul class="pj-scouts" id="pj-scouts"></ul>
+                            <button type="button" class="btn btn-primary btn-sm mt-3" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <script>
-            // Real-time partial: reloads every 30s while the tab is visible.
-            setInterval(function () { if (!document.hidden) { location.reload(); } }, 30000);
+            (function () {
+                var el = document.getElementById('modalJogador');
+                var open = false;
+                el.addEventListener('shown.bs.modal', function () { open = true; });
+                el.addEventListener('hidden.bs.modal', function () { open = false; });
+
+                function show(row) {
+                    var p = JSON.parse(row.getAttribute('data-player'));
+                    document.getElementById('pj-photo').src = p.photo || '';
+                    document.getElementById('pj-photo').style.display = p.photo ? '' : 'none';
+                    document.getElementById('pj-name').textContent = p.name + (p.captain ? ' (C)' : '') + (p.luxury ? ' (L)' : '');
+                    document.getElementById('pj-info').textContent = p.info;
+                    document.getElementById('pj-points').innerHTML = p.points === null ? '—' : p.points + ' <small>pts</small>';
+                    var note = p.status || '';
+                    if (p.points !== null && (p.captain || p.luxury)) { note = 'Pontuação base ' + p.raw + ' × 1,5'; }
+                    document.getElementById('pj-note').textContent = note;
+                    var list = document.getElementById('pj-scouts');
+                    list.innerHTML = '';
+                    if (!p.scouts.length) {
+                        list.innerHTML = '<li class="pj-empty">Sem scouts até agora.</li>';
+                    }
+                    p.scouts.forEach(function (s) {
+                        var li = document.createElement('li');
+                        li.className = s.negative ? 'neg' : 'pos';
+                        var label = document.createElement('span');
+                        label.textContent = s.label;
+                        var qty = document.createElement('b');
+                        qty.textContent = s.qty + 'x';
+                        li.appendChild(label);
+                        li.appendChild(qty);
+                        list.appendChild(li);
+                    });
+                    bootstrap.Modal.getOrCreateInstance(el).show();
+                }
+
+                document.querySelectorAll('.player-open').forEach(function (row) {
+                    row.addEventListener('click', function () { show(row); });
+                    row.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(row); } });
+                });
+
+                // Real-time partial: reloads every 30s while the tab is visible and no player is open.
+                setInterval(function () { if (!document.hidden && !open) { location.reload(); } }, 30000);
+            })();
             </script>
         <?php endif; ?>
     <?php endif; ?>

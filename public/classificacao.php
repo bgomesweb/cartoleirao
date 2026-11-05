@@ -69,6 +69,7 @@ $leagueId = isset($_GET['liga_id']) ? (int) $_GET['liga_id'] : ($leagues[0]['id'
 // With the market closed the round is being played: the default view is the live partial score.
 $market = MarketStatus::current();
 $liveRound = $market && $market['status_code'] === 2 ? $market['current_round'] : null;
+$marketOpen = $market && $market['status_code'] === 1;
 $requestedMode = $_GET['modo'] ?? ($liveRound ? 'ao-vivo' : 'geral');
 $mode = $requestedMode === 'rodada' ? 'rodada' : ($requestedMode === 'ao-vivo' && $liveRound ? 'ao-vivo' : 'geral');
 
@@ -262,6 +263,7 @@ require __DIR__ . '/includes/header.php';
                                 <div>
                                     <div class="nm">
                                         <?= e(teamDisplayName($t)) ?>
+                                        <?php if ($marketOpen): ?><a href="desempenho.php?id=<?= (int) $t['id'] ?>" class="btn-desempenho">Desempenho</a><?php endif; ?>
                                         <?php if (!empty($t['is_subscriber'])): ?><span class="pc-badge-pro">PRO</span><?php endif; ?>
                                         <?php if ($change > 0): ?>
                                             <span class="rk-var variacao-up"><i class="fa-solid fa-caret-up"></i><?= $change ?></span>
@@ -369,6 +371,7 @@ require __DIR__ . '/includes/header.php';
                             <?php else: ?>
                                 <?= e(teamDisplayName($r)) ?>
                             <?php endif; ?>
+                            <?php if ($marketOpen): ?><a href="desempenho.php?id=<?= (int) $r['official_league_team_id'] ?>" class="btn-desempenho">Desempenho</a><?php endif; ?>
                             <?php if ($isBonusRoundChampion): ?>
                                 <span class="selo-campeao-bonus"><i class="fa-solid fa-trophy"></i> Campeão da rodada bônus</span>
                             <?php endif; ?>

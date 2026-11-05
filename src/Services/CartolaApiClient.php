@@ -100,12 +100,42 @@ class CartolaApiClient
      */
     public function teamLineups(array $teamIds): array
     {
+        $urls = [];
+        foreach ($teamIds as $id) {
+            $urls[$id] = $this->baseUrl . '/time/id/' . $id;
+        }
+
+        return $this->getMany($urls);
+    }
+
+    /**
+     * One team's lineup/score in several (past) rounds, fetched in parallel.
+     *
+     * @param int[] $rounds
+     * @return array<int, array> round number => response (rounds that failed are left out)
+     */
+    public function teamRounds(int $teamId, array $rounds): array
+    {
+        $urls = [];
+        foreach ($rounds as $n) {
+            $urls[$n] = $this->baseUrl . '/time/id/' . $teamId . '/' . $n;
+        }
+
+        return $this->getMany($urls);
+    }
+
+    /**
+     * @param array<int, string> $urls key => url
+     * @return array<int, array> key => decoded response (failed ones are left out)
+     */
+    private function getMany(array $urls): array
+    {
         $result = [];
-        foreach (array_chunk($teamIds, 10) as $chunk) {
+        foreach (array_chunk($urls, 10, true) as $chunk) {
             $mh = curl_multi_init();
             $handles = [];
-            foreach ($chunk as $id) {
-                $ch = curl_init($this->baseUrl . '/time/id/' . $id);
+            foreach ($chunk as $key => $url) {
+                $ch = curl_init($url);
                 curl_setopt_array($ch, [
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_TIMEOUT => 10,
@@ -116,7 +146,7 @@ class CartolaApiClient
                     CURLOPT_MAXREDIRS => 3,
                 ]);
                 curl_multi_add_handle($mh, $ch);
-                $handles[$id] = $ch;
+                $handles[$key] = $ch;
             }
             do {
                 $status = curl_multi_exec($mh, $running);
@@ -125,10 +155,10 @@ class CartolaApiClient
                 }
             } while ($running && $status === CURLM_OK);
 
-            foreach ($handles as $id => $ch) {
+            foreach ($handles as $key => $ch) {
                 $decoded = json_decode((string) curl_multi_getcontent($ch), true);
                 if (curl_getinfo($ch, CURLINFO_HTTP_CODE) < 400 && is_array($decoded)) {
-                    $result[$id] = $decoded;
+                    $result[$key] = $decoded;
                 }
                 curl_multi_remove_handle($mh, $ch);
             }
